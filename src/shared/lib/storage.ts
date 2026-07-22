@@ -5,6 +5,7 @@ import type { LogRow, PersistedState } from '../types/domain';
 const dbName = 'ai-analytics-dashboard';
 const storeName = 'state';
 const stateKey = 'snapshot';
+const fallbackKey = `${dbName}:${stateKey}`;
 
 const emptyState: PersistedState = {
   version: 3,
@@ -20,6 +21,43 @@ async function db() {
       if (!database.objectStoreNames.contains(storeName)) database.createObjectStore(storeName);
     },
   });
+}
+
+function normalizePersistedState(value: Partial<PersistedState> | null | undefined): PersistedState {
+  if (!value) return emptyState;
+
+  return {
+    ...emptyState,
+    ...value,
+    rows: compactRows((value.rows ?? []).map((row: any) => {
+      const parsed = row.datetimeRaw ? parseLogDate(row.datetimeRaw) : { parsedAt: row.parsedAt ? new Date(row.parsedAt) : null };
+
+      return {
+        ...row,
+        ...parsed,
+        requestCount: row.requestCount ?? 1,
+      };
+    })),
+    files: Array.isArray(value.files) ? value.files : [],
+    sitemapFiles: Array.isArray(value.sitemapFiles) ? value.sitemapFiles : [],
+    robotsTxt: typeof value.robotsTxt === 'string' ? value.robotsTxt : '',
+  };
+}
+
+function loadFallbackState(): PersistedState {
+  try {
+    return normalizePersistedState(JSON.parse(localStorage.getItem(fallbackKey) || 'null'));
+  } catch {
+    return emptyState;
+  }
+}
+
+function saveFallbackState(state: PersistedState): void {
+  try {
+    localStorage.setItem(fallbackKey, JSON.stringify(state));
+  } catch {
+    // IndexedDB remains the primary store; localStorage is only a best-effort fallback.
+  }
 }
 
 function compactRows(rows: LogRow[]): LogRow[] {
@@ -54,30 +92,31 @@ function compactRows(rows: LogRow[]): LogRow[] {
 }
 
 export async function loadPersistedState(): Promise<PersistedState> {
-  const database = await db();
-  const value = await database.get(storeName, stateKey);
-  if (!value) return emptyState;
-  return {
-    ...emptyState,
-    ...value,
-    rows: compactRows((value.rows ?? []).map((row: any) => {
-      const parsed = row.datetimeRaw ? parseLogDate(row.datetimeRaw) : { parsedAt: row.parsedAt ? new Date(row.parsedAt) : null };
-
-      return {
-        ...row,
-        ...parsed,
-        requestCount: row.requestCount ?? 1,
-      };
-    })),
-  };
+  try {
+    const database = await db();
+    const value = await database.get(storeName, stateKey);
+    return normalizePersistedState(value);
+  } catch {
+    return loadFallbackState();
+  }
 }
 
 export async function savePersistedState(state: PersistedState): Promise<void> {
-  const database = await db();
-  await database.put(storeName, state, stateKey);
+  saveFallbackState(state);
+  try {
+    const database = await db();
+    await database.put(storeName, state, stateKey);
+  } catch {
+    // Keep current in-memory data and the fallback copy instead of surfacing a stale load error.
+  }
 }
 
 export async function clearPersistedState(): Promise<void> {
-  const database = await db();
-  await database.delete(storeName, stateKey);
+  localStorage.removeItem(fallbackKey);
+  try {
+    const database = await db();
+    await database.delete(storeName, stateKey);
+  } catch {
+    // Nothing else to clear.
+  }
 }

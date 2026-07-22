@@ -1,5 +1,5 @@
 import { Database, FileText, Network, Trash2, Upload } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { parseAllSitemapFiles, totalRequestCount } from '../analytics/selectors';
 import { formatNumber } from '../../shared/lib/format';
 import type { ImportedFileMeta, LogRow, TextFilePayload } from '../../shared/types/domain';
@@ -39,7 +39,7 @@ export function SettingsPage({ rows, files, sitemapFiles, onAddLogs, onSitemapUp
       </section>
 
       <section className="panel settings-upload-card">
-        <CardHead icon={<FileText className="h-5 w-5" />} title="Логи" subtitle="CSV или XLSX с запросами AI-ботов." />
+        <CardHead icon={<FileText className="h-5 w-5" />} title="Логи" subtitle="CSV с запросами AI-ботов." />
         <div className="settings-card-body">
           <div className="settings-file-list">
             {files.length ? files.map((file) => (
@@ -92,7 +92,7 @@ export function SettingsPage({ rows, files, sitemapFiles, onAddLogs, onSitemapUp
   );
 }
 
-function CardHead({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+function CardHead({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
   return (
     <div className="settings-card-head">
       <span className="settings-icon" aria-hidden="true">{icon}</span>

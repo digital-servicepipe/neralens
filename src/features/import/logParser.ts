@@ -1,5 +1,4 @@
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import { classifyAgentGroup, getBotDisplayName } from '../bots/botDictionary';
 import { normalizeColumnName, normalizeRecord, requiredColumns } from './columnMapping';
 import { getSectionAndPageType, normalizePath } from '../../shared/lib/url';
@@ -89,34 +88,9 @@ export async function parseCsvFile(file: File): Promise<ParsedLogResult> {
   return parseCsvText(await file.text());
 }
 
-function isRealXlsx(buffer: ArrayBuffer): boolean {
-  const signature = new Uint8Array(buffer.slice(0, 4));
-  return signature[0] === 0x50 && signature[1] === 0x4b && signature[2] === 0x03 && signature[3] === 0x04;
-}
-
-function sheetRowsToCsvLines(sheet: XLSX.WorkSheet): string[] {
-  const matrix = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false, defval: '' });
-  return matrix
-    .map((row) => row.map((cell) => String(cell ?? '').trim()).filter(Boolean).join(','))
-    .filter(Boolean);
-}
-
-export async function parseExcelWrappedCsv(file: File): Promise<ParsedLogResult> {
-  const buffer = await file.arrayBuffer();
-  if (!isRealXlsx(buffer)) return parseCsvText(await file.text());
-
-  const workbook = XLSX.read(buffer, { type: 'array' });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) throw new Error('XLSX-файл не содержит листов.');
-  const sheet = workbook.Sheets[sheetName];
-  const a1 = String(sheet.A1?.v ?? '');
-  if (!a1.includes('datetime') && !a1.includes('sid,')) {
-    const csv = XLSX.utils.sheet_to_csv(sheet);
-    return parseCsvText(csv);
-  }
-  return parseCsvText(sheetRowsToCsvLines(sheet).join('\n'));
-}
-
 export async function parseLogFile(file: File): Promise<ParsedLogResult> {
-  return /\.xlsx?$/i.test(file.name) ? parseExcelWrappedCsv(file) : parseCsvFile(file);
+  if (/\.xlsx?$/i.test(file.name)) {
+    throw new Error('Загрузите логи в CSV. XLS/XLSX отключены, чтобы не тянуть небезопасный парсер в браузер.');
+  }
+  return parseCsvFile(file);
 }

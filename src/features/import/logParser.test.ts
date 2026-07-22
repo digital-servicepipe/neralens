@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import * as XLSX from 'xlsx';
 import { normalizeColumnName } from './columnMapping';
-import { parseCsvText, parseExcelWrappedCsv } from './logParser';
+import { parseCsvText, parseLogFile } from './logParser';
 
 const csv = [
   'sid,datetime_utc,ua,uniq_id,url,country,asn,subnet,netname,status,bot,uaGroup',
@@ -81,14 +80,8 @@ describe('log import', () => {
     expect(parsed.rows[0].agentGroup).toBe('ai_assistant_bot');
   });
 
-  it('parses excel wrapped csv', async () => {
-    const workbook = XLSX.utils.book_new();
-    const sheet = XLSX.utils.aoa_to_sheet(csv.split('\n').map((line) => [line]));
-    XLSX.utils.book_append_sheet(workbook, sheet, 'Sheet1');
-    const array = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
-    const file = new File([array], 'media_processed.xlsx');
-    const parsed = await parseExcelWrappedCsv(file);
-    expect(parsed.rowCount).toBe(1);
-    expect(parsed.detectedColumns).toContain('http_user_agent');
+  it('rejects excel files in the browser parser', async () => {
+    const file = new File(['not used'], 'media_processed.xlsx');
+    await expect(parseLogFile(file)).rejects.toThrow('Загрузите логи в CSV');
   });
 });

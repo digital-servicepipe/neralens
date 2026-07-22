@@ -12,13 +12,12 @@ import { AuthGate } from './AuthGate';
 type Screen = 'overview' | 'pages' | 'sitemap' | 'settings';
 
 const activeScreenKey = 'neralens-active-screen';
-const siteDomainKey = 'neralens-site-domain';
 
 const screenMeta: Record<Screen, { title: string; subtitle: string }> = {
   overview: { title: 'Обзор', subtitle: 'Общая картина по запросам AI-ботов к сайту' },
   pages: { title: 'Страницы', subtitle: 'Пути, разделы и детальная статистика по AI-ботам' },
   sitemap: { title: 'Карта', subtitle: 'Структура сайта по sitemap с наложением логов' },
-  settings: { title: 'Настройки', subtitle: 'Загрузка логов, домен сайта, очистка и базовые параметры' },
+  settings: { title: 'Настройки', subtitle: 'Загрузка логов, sitemap, очистка и базовые параметры' },
 };
 
 function createFileMeta(file: File, rowCount: number): ImportedFileMeta {
@@ -35,6 +34,15 @@ function isScreen(value: unknown): value is Screen {
   return value === 'overview' || value === 'pages' || value === 'sitemap' || value === 'settings';
 }
 
+function inferSiteDomain(rows: LogRow[]): string {
+  const counts = new Map<string, number>();
+  rows.forEach((row) => {
+    const host = String(row.host || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/g, '');
+    if (host) counts.set(host, (counts.get(host) ?? 0) + (row.requestCount ?? 1));
+  });
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+}
+
 export function App() {
   const [isReady, setReady] = useState(false);
   const [rows, setRows] = useState<LogRow[]>([]);
@@ -44,7 +52,6 @@ export function App() {
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [isParsing, setParsing] = useState(false);
-  const [siteDomain, setSiteDomain] = useState(() => localStorage.getItem(siteDomainKey) || 'neralens.ru');
   const [filters, setFilters] = useState<FiltersState>(() => normalizeFilters(readUrlState().filters));
   const [activeScreen, setActiveScreen] = useState<Screen>(() => {
     const urlScreen = readUrlState().screen;
@@ -55,7 +62,6 @@ export function App() {
 
   const logInputRef = useRef<HTMLInputElement | null>(null);
   const sitemapInputRef = useRef<HTMLInputElement | null>(null);
-  const robotsInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadPersistedState()
@@ -83,13 +89,10 @@ export function App() {
     writeUrlState(activeScreen, filters);
   }, [activeScreen, filters]);
 
-  useEffect(() => {
-    localStorage.setItem(siteDomainKey, siteDomain);
-  }, [siteDomain]);
-
   const deferredFilters = useDeferredValue(filters);
   const analyticsPending = deferredFilters !== filters;
   const analytics = useAnalytics(rows, deferredFilters, robotsTxt, activeScreen);
+  const siteDomain = useMemo(() => inferSiteDomain(rows), [rows]);
 
   const handleLogFiles = async (incoming: FileList | File[]) => {
     const selected = Array.from(incoming);
@@ -121,11 +124,6 @@ export function App() {
     await persist({ version: 3, rows, files, sitemapFiles: next, robotsTxt });
   };
 
-  const handleRobotsFile = async (file: File) => {
-    setError('');
-    await persist({ version: 3, rows, files, sitemapFiles, robotsTxt: await file.text() });
-  };
-
   const resetAll = async () => {
     await clearPersistedState();
     setRows([]);
@@ -141,9 +139,8 @@ export function App() {
   const controls = useMemo(
     () => (
       <>
-        <input ref={logInputRef} className="hidden" type="file" accept=".csv,.xlsx,.xls,text/csv" multiple onChange={(event) => event.currentTarget.files && void handleLogFiles(event.currentTarget.files)} />
+        <input ref={logInputRef} className="hidden" type="file" accept=".csv,text/csv" multiple onChange={(event) => event.currentTarget.files && void handleLogFiles(event.currentTarget.files)} />
         <input ref={sitemapInputRef} className="hidden" type="file" accept=".xml,.json,text/xml,application/xml,application/json" multiple onChange={(event) => event.currentTarget.files && void handleSitemapFiles(event.currentTarget.files)} />
-        <input ref={robotsInputRef} className="hidden" type="file" accept=".txt,text/plain" onChange={(event) => event.currentTarget.files?.[0] && void handleRobotsFile(event.currentTarget.files[0])} />
       </>
     ),
     [rows, files, sitemapFiles, robotsTxt],
@@ -161,16 +158,14 @@ export function App() {
       sitemapFiles={sitemapFiles}
       robotsTxt={robotsTxt}
       siteDomain={siteDomain}
-          filters={filters}
-          analytics={analytics}
-          analyticsPending={analyticsPending}
+      filters={filters}
+      analytics={analytics}
+      analyticsPending={analyticsPending}
       onFiltersChange={setFilters}
       onResetFilters={() => setFilters(emptyFilters)}
       onPathSelect={(path) => setFilters((current) => ({ ...current, pathQuery: path }))}
-      onSiteDomainChange={setSiteDomain}
       onAddLogs={() => logInputRef.current?.click()}
       onSitemapUpload={() => sitemapInputRef.current?.click()}
-      onRobotsUpload={() => robotsInputRef.current?.click()}
       onClearLogs={() => void resetAll()}
     />
   ) : (
@@ -180,7 +175,6 @@ export function App() {
       onLogFiles={handleLogFiles}
       onPickLogs={() => logInputRef.current?.click()}
       onPickSitemap={() => sitemapInputRef.current?.click()}
-      onPickRobots={() => robotsInputRef.current?.click()}
     />
   );
 
@@ -246,24 +240,21 @@ function EmptyImportScreen({
   onLogFiles,
   onPickLogs,
   onPickSitemap,
-  onPickRobots,
 }: {
   error: string;
   isParsing: boolean;
   onLogFiles: (files: FileList | File[]) => void;
   onPickLogs: () => void;
   onPickSitemap: () => void;
-  onPickRobots: () => void;
 }) {
   return (
     <section className="panel p-6">
       <div className="drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void onLogFiles(event.dataTransfer.files); }}>
         <p className="text-2xl font-extrabold text-ink">Загрузите логи AI-ботов</p>
-        <p className="mt-2 text-sm text-muted">CSV или XLSX, внутри которого лежит CSV-файл с логами. После импорта откроется обзор.</p>
+        <p className="mt-2 text-sm text-muted">CSV с логами. После импорта откроется обзор.</p>
         <div className="mt-4 flex gap-2">
           <button className="primary-button" onClick={onPickLogs}>Загрузить CSV</button>
           <button className="ghost-button" onClick={onPickSitemap}>Загрузить XML/JSON</button>
-          <button className="ghost-button" onClick={onPickRobots}>Загрузить TXT</button>
         </div>
       </div>
       {isParsing && <p className="mt-3 text-sm font-bold text-aqua">Обработка...</p>}

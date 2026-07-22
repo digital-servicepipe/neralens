@@ -118,7 +118,8 @@ export function titleFromPath(path: string): string {
 }
 
 export function absoluteUrl(path: string, domain: string): string {
-  const host = domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/g, '') || 'neralens.ru';
+  const host = domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/g, '');
+  if (!host) return /^https?:\/\//i.test(path) ? path : normalizePath(path);
   return /^https?:\/\//i.test(path) ? path : `https://${host}${path.startsWith('/') ? path : `/${path}`}`;
 }
 

@@ -33,13 +33,20 @@ const routeTitles: Record<string, string> = {
   '/partners': 'Партнеры',
   '/partners/wmx': 'WMX — технологический партнёр Servicepipe',
   '/press-center': 'СМИ о нас',
+  '/price': 'Цены',
+  '/prices': 'Цены',
+  '/pricing': 'Цены',
   '/products': 'Продукты',
   '/retail': 'Лучшие практики защиты онлайн-ритейла от кибератак',
   '/secure-dns-hosting': 'Secure DNS Hosting',
-  '/solutions': 'Решения',
+  '/certificate': 'Сертификаты',
+  '/certificates': 'Сертификаты',
+  '/certificates-and-licenses': 'Сертификаты и лицензии',
+  '/license': 'Лицензии',
+  '/licenses': 'Лицензии',
   '/stress-test': 'Stress Test',
   '/telecom': 'Комплексная DDoS-защита для операторов связи',
-  '/visibla': 'Быстрое избавление от фрода в маркетинге',
+  '/visibla': 'Visibla',
   '/visibla/scan': 'Visibla Scan',
   '/visibla/verify': 'Visibla Verify',
   '/waf': 'Cloud WAF',
@@ -137,9 +144,6 @@ function parseJsonTitleFile(file: TextFilePayload, catalog: PageTitleCatalog) {
 
 export function buildPageTitleCatalog(files: TextFilePayload[] = []): PageTitleCatalog {
   const catalog: PageTitleCatalog = new Map();
-  Object.entries(routeTitles).forEach(([path, title]) => {
-    catalog.set(path, { path, title, source: 'route', section: 'main' });
-  });
   Object.entries(servicepipePageTitles).forEach(([path, title]) => {
     const normalized = normalizePath(path);
     catalog.set(normalized, {
@@ -148,6 +152,9 @@ export function buildPageTitleCatalog(files: TextFilePayload[] = []): PageTitleC
       source: 'builtin',
       section: normalized.startsWith('/blog/') ? 'blog' : normalized.startsWith('/news/') || normalized.startsWith('/press-center/') ? 'news' : undefined,
     });
+  });
+  Object.entries(routeTitles).forEach(([path, title]) => {
+    catalog.set(path, { path, title, source: 'route', section: 'main' });
   });
 
   files.forEach((file) => {

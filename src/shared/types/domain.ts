@@ -9,8 +9,10 @@ export type PageType = 'technical' | 'service' | 'file' | 'other';
 export interface LogRow {
   sid?: string;
   datetimeRaw: string;
+  dateRaw?: string;
   parsedAt: Date | null;
   date: string;
+  requestCount?: number;
   hour: number | null;
   minute: number | null;
   httpUserAgent: string;
@@ -50,6 +52,7 @@ export interface FiltersState {
   agentDetails: string[];
   requestStatuses: string[];
   sections: string[];
+  excludedSections: string[];
   countries: string[];
   pathQuery: string;
 }
@@ -93,6 +96,7 @@ export const emptyFilters: FiltersState = {
   agentDetails: [],
   requestStatuses: [],
   sections: [],
+  excludedSections: [],
   countries: [],
   pathQuery: '',
 };
@@ -105,6 +109,7 @@ export function normalizeFilters(filters?: Partial<FiltersState> | null): Filter
     agentDetails: Array.isArray(filters?.agentDetails) ? filters.agentDetails : [],
     requestStatuses: Array.isArray(filters?.requestStatuses) ? filters.requestStatuses : [],
     sections: Array.isArray(filters?.sections) ? filters.sections : [],
+    excludedSections: Array.isArray(filters?.excludedSections) ? filters.excludedSections : [],
     countries: Array.isArray(filters?.countries) ? filters.countries : [],
     pathQuery: filters?.pathQuery ?? '',
   };

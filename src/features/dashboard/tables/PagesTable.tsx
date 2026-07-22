@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Copy, ExternalLink } from 'lucide-react';
 import { formatNumber, formatPercent, truncateMiddle } from '../../../shared/lib/format';
 import { displayTitleForPath, type PageTitleCatalog } from '../../../shared/lib/pageTitles';
@@ -9,8 +9,13 @@ import { BotTokenList } from '../../bots/BotTokenList';
 import { getBotDisplayName } from '../../bots/botDictionary';
 
 type Analytics = ReturnType<typeof useAnalytics>;
+type RowWithBotName = LogRow & { botName?: string };
 
 const limits = [10, 25, 50] as const;
+
+function botNameFor(row: RowWithBotName) {
+  return row.botName ?? getBotDisplayName(row.botType, row.httpUserAgent);
+}
 
 export function PagesTable({
   analytics,
@@ -29,8 +34,17 @@ export function PagesTable({
   const [limit, setLimit] = useState<number | 'all'>(compact ? 10 : 50);
   const summaries = analytics.urlSummaries;
   const shown = summaries.slice(0, limit === 'all' ? summaries.length : limit);
-  const total = analytics.filteredRows.length || 1;
+  const total = analytics.kpis.totalRequests || 1;
   const sectionCount = new Set(analytics.filteredRows.map((row) => row.section)).size;
+  const rowsByPath = useMemo(() => {
+    const map = new Map<string, LogRow[]>();
+    sourceRows.forEach((row) => {
+      const list = map.get(row.path) ?? [];
+      list.push(row);
+      map.set(row.path, list);
+    });
+    return map;
+  }, [sourceRows]);
 
   return (
     <article className="panel pages-panel">
@@ -54,7 +68,7 @@ export function PagesTable({
 
       <div className="pages-stats">
         <StatCard label="Пути" value={summaries.length} />
-        <StatCard label="Запросы" value={analytics.filteredRows.length} />
+        <StatCard label="Запросы" value={analytics.kpis.totalRequests} />
         <StatCard label="Разделы" value={sectionCount} />
       </div>
 
@@ -70,11 +84,11 @@ export function PagesTable({
           </thead>
           <tbody>
             {shown.length ? shown.map((row) => {
-              const pathRows = sourceRows.filter((item) => item.path === row.path);
+              const pathRows = rowsByPath.get(row.path) ?? [];
               const url = absoluteUrlForPath(row.path, pathRows, siteDomain);
               const bots = Object.keys(row.bots).map((name) => ({
                 name,
-                groups: Array.from(new Set(pathRows.filter((item) => getBotDisplayName(item.botType, item.httpUserAgent) === name).map((item) => item.agentGroup))),
+                groups: Array.from(new Set(pathRows.filter((item) => botNameFor(item) === name).map((item) => item.agentGroup))),
               }));
 
               return (

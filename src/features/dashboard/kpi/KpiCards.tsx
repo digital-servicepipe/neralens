@@ -7,10 +7,10 @@ type Analytics = ReturnType<typeof useAnalytics>;
 export function KpiCards({ kpis, analytics }: { kpis: Kpis; analytics: Analytics }) {
   const cards = [
     ['ЗАПРОСЫ', kpis.totalRequests, 'в текущем срезе'],
-    ['ПУТИ', kpis.uniqueUrls, 'уникальные пути'],
+    ['ПУТИ', kpis.uniqueUrls, 'уникальные path (пути)'],
     ['ГРУППЫ', analytics.top.botGroups.length, 'крупные группы ботов'],
-    ['USER-AGENT', kpis.uniqueAgents, 'короткие имена'],
-    ['РАЗДЕЛЫ', analytics.top.sections.length, 'видимые блоки сайта'],
+    ['USER-AGENT', kpis.uniqueAgents, 'уникальные UA в запросах'],
+    ['РАЗДЕЛЫ', analytics.top.sections.length, 'видимые разделы сайта'],
     ['ДНИ', kpis.activeDays, 'активные даты'],
   ] as const;
 

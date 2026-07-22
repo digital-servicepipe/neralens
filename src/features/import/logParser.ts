@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { classifyAgentGroup, getBotDisplayName } from '../bots/botDictionary';
 import { normalizeColumnName, normalizeRecord, requiredColumns } from './columnMapping';
 import { getSectionAndPageType, normalizePath } from '../../shared/lib/url';
+import { parseLogDate } from '../../shared/lib/logDate';
 import type { LogRow, ParsedLogResult } from '../../shared/types/domain';
 
 type CsvRecord = Record<string, unknown>;
@@ -12,28 +13,12 @@ function parseCount(raw: string | undefined): number {
   return Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
 }
 
-function parseDate(raw: string): { parsedAt: Date | null; date: string; hour: number | null; minute: number | null } {
-  const text = raw.trim();
-  const parsed = new Date(text);
-  if (!Number.isNaN(parsed.getTime())) {
-    return {
-      parsedAt: parsed,
-      date: parsed.toISOString().slice(0, 10),
-      hour: parsed.getHours(),
-      minute: parsed.getMinutes(),
-    };
-  }
-  const match = text.match(/(\d{4})[-./](\d{2})[-./](\d{2})(?:[ T](\d{1,2}):(\d{2}))?/);
-  if (!match) return { parsedAt: null, date: 'Unknown', hour: null, minute: null };
-  const [, y, m, d, hh, mm] = match;
-  const date = `${y}-${m}-${d}`;
-  return { parsedAt: null, date, hour: hh ? Number(hh) : null, minute: mm ? Number(mm) : null };
-}
-
 export function toLogRow(rawRecord: CsvRecord, copyIndex = 0): LogRow {
   const record = normalizeRecord(rawRecord);
   const datetimeRaw = record.datetime ?? '';
-  const parsed = parseDate(datetimeRaw);
+  const dateRaw = record.date;
+  const parsed = parseLogDate(datetimeRaw);
+  const requestCount = parseCount(record.count);
   const path = normalizePath(record.path ?? '/');
   const page = getSectionAndPageType(path);
   const ua = record.http_user_agent ?? '';
@@ -44,7 +29,9 @@ export function toLogRow(rawRecord: CsvRecord, copyIndex = 0): LogRow {
   return {
     sid: record.sid,
     datetimeRaw,
+    dateRaw,
     ...parsed,
+    requestCount,
     httpUserAgent: ua,
     uniqId,
     path,
@@ -64,8 +51,7 @@ export function toLogRow(rawRecord: CsvRecord, copyIndex = 0): LogRow {
 }
 
 function expandRecord(rawRecord: CsvRecord): LogRow[] {
-  const record = normalizeRecord(rawRecord);
-  return Array.from({ length: parseCount(record.count) }, (_, index) => toLogRow(record, index));
+  return [toLogRow(rawRecord)];
 }
 
 function validate(fields: string[], records: CsvRecord[]): void {
@@ -93,7 +79,7 @@ export async function parseCsvText(text: string): Promise<ParsedLogResult> {
   const rows = result.data.flatMap(expandRecord);
   return {
     rows,
-    rowCount: rows.length,
+    rowCount: rows.reduce((sum, row) => sum + (row.requestCount ?? 1), 0),
     detectedColumns: fields.map(normalizeColumnName),
     usedUaGroupColumn: fields.map(normalizeColumnName).includes('ua_group'),
   };

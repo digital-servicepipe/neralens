@@ -1,5 +1,6 @@
 import { openDB } from 'idb';
-import type { PersistedState } from '../types/domain';
+import { parseLogDate } from './logDate';
+import type { LogRow, PersistedState } from '../types/domain';
 
 const dbName = 'ai-analytics-dashboard';
 const storeName = 'state';
@@ -21,6 +22,37 @@ async function db() {
   });
 }
 
+function compactRows(rows: LogRow[]): LogRow[] {
+  const map = new Map<string, LogRow>();
+
+  rows.forEach((row) => {
+    const key = [
+      row.sid,
+      row.datetimeRaw,
+      row.dateRaw,
+      row.path,
+      row.httpUserAgent,
+      row.botType,
+      row.uaGroup,
+      row.requestStatus,
+      row.country,
+      row.asn,
+      row.subnet,
+      row.netname,
+      row.host,
+      row.sslsignName,
+    ].join('\u001f');
+    const existing = map.get(key);
+    if (existing) {
+      existing.requestCount = (existing.requestCount ?? 1) + (row.requestCount ?? 1);
+    } else {
+      map.set(key, { ...row, requestCount: row.requestCount ?? 1 });
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 export async function loadPersistedState(): Promise<PersistedState> {
   const database = await db();
   const value = await database.get(storeName, stateKey);
@@ -28,7 +60,15 @@ export async function loadPersistedState(): Promise<PersistedState> {
   return {
     ...emptyState,
     ...value,
-    rows: (value.rows ?? []).map((row: any) => ({ ...row, parsedAt: row.parsedAt ? new Date(row.parsedAt) : null })),
+    rows: compactRows((value.rows ?? []).map((row: any) => {
+      const parsed = row.datetimeRaw ? parseLogDate(row.datetimeRaw) : { parsedAt: row.parsedAt ? new Date(row.parsedAt) : null };
+
+      return {
+        ...row,
+        ...parsed,
+        requestCount: row.requestCount ?? 1,
+      };
+    })),
   };
 }
 

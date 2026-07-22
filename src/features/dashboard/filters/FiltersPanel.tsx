@@ -49,6 +49,7 @@ export function FiltersPanel({ filters, options, onChange, onReset }: FiltersPan
     filters.agentDetails.length,
     filters.requestStatuses.length,
     filters.sections.length,
+    filters.excludedSections.length,
     filters.pathQuery,
   ].filter(Boolean).length;
 
@@ -214,7 +215,7 @@ export function FiltersPanel({ filters, options, onChange, onReset }: FiltersPan
         <FilterButton ref={setTriggerRef('groups')} icon={<Bot className="h-4 w-4" />} label="Группы" value={filters.agentGroups.length ? `${filters.agentGroups.length} выбрано` : 'Все'} badge={filters.agentGroups.length || undefined} open={popover === 'groups'} onClick={() => setPopover(popover === 'groups' ? null : 'groups')} />
         <FilterButton ref={setTriggerRef('bots')} icon={<SlidersHorizontal className="h-4 w-4" />} label="Боты" value={filters.agentDetails.length ? `${filters.agentDetails.length} выбрано` : 'Все'} open={popover === 'bots'} onClick={() => setPopover(popover === 'bots' ? null : 'bots')} wide />
         <FilterButton ref={setTriggerRef('statuses')} icon={<Shield className="h-4 w-4" />} label="Статусы" value={filters.requestStatuses[0] ?? 'Все'} open={popover === 'statuses'} onClick={() => setPopover(popover === 'statuses' ? null : 'statuses')} />
-        <FilterButton ref={setTriggerRef('sections')} icon={<Layers className="h-4 w-4" />} label="Разделы сайта" value={filters.sections[0] ?? 'Все'} open={popover === 'sections'} onClick={() => setPopover(popover === 'sections' ? null : 'sections')} />
+        <FilterButton ref={setTriggerRef('sections')} icon={<Layers className="h-4 w-4" />} label="Разделы сайта" value={sectionsLabel(filters.sections, filters.excludedSections, options.sections.length)} badge={sectionFilterCount(filters) || undefined} open={popover === 'sections'} onClick={() => setPopover(popover === 'sections' ? null : 'sections')} />
         <label className="filter-search">
           <span><Search className="h-4 w-4" /></span>
           <span>
@@ -309,10 +310,25 @@ export function FiltersPanel({ filters, options, onChange, onReset }: FiltersPan
           <div className="popover-search"><Search className="h-4 w-4" /><input value={sectionQuery} placeholder="Найти раздел" onChange={(event) => setSectionQuery(event.target.value)} /></div>
           <div className="popover-scroll">
             {sectionOptions.map((section) => (
-              <CheckRow key={section} label={section} checked={filters.sections.includes(section)} onClick={() => onChange((current) => ({ ...current, sections: toggle(current.sections, section) }))} />
+              <SectionRow
+                key={section}
+                label={section}
+                checked={filters.sections.includes(section)}
+                excluded={filters.excludedSections.includes(section)}
+                onToggle={() => onChange((current) => ({
+                  ...current,
+                  sections: toggle(current.sections, section),
+                  excludedSections: current.excludedSections.filter((item) => item !== section),
+                }))}
+                onExclude={() => onChange((current) => ({
+                  ...current,
+                  sections: current.sections.filter((item) => item !== section),
+                  excludedSections: toggle(current.excludedSections, section),
+                }))}
+              />
             ))}
           </div>
-          <div className="popover-meta popover-footer"><span>{sectionOptions.length} из {options.sections.length}</span><button onClick={() => onChange((current) => ({ ...current, sections: [] }))}>Очистить</button></div>
+          <div className="popover-meta popover-footer"><span>{sectionFilterMeta(filters, options.sections.length)}</span><button onClick={() => onChange((current) => ({ ...current, sections: [], excludedSections: [] }))}>Очистить</button></div>
         </ListPopover>
       )}
     </section>
@@ -342,11 +358,46 @@ function CheckRow({ label, checked, onClick, color }: { label: string; checked: 
   );
 }
 
+function SectionRow({ label, checked, excluded, onToggle, onExclude }: { label: string; checked: boolean; excluded: boolean; onToggle: () => void; onExclude: () => void }) {
+  return (
+    <div className={`check-row section-filter-row ${checked ? 'checked' : ''} ${excluded ? 'excluded' : ''}`}>
+      <button className="section-filter-main" type="button" aria-pressed={checked} onClick={onToggle}>
+        <span className="radio-dot" />
+        <span className="section-filter-name">{label}</span>
+      </button>
+      <button className="section-filter-exclude" type="button" aria-pressed={excluded} aria-label={excluded ? `Вернуть раздел ${label}` : `Исключить раздел ${label}`} title={excluded ? 'Вернуть раздел' : 'Исключить раздел'} onClick={onExclude}>
+        {excluded ? 'вернуть' : 'исключить'}
+      </button>
+    </div>
+  );
+}
+
 function dateLabel(filters: FiltersState) {
   if (filters.dateFrom && filters.dateTo) return `${shortDate(filters.dateFrom)} - ${shortDate(filters.dateTo)}`;
   if (filters.dateFrom) return `с ${shortDate(filters.dateFrom)}`;
   if (filters.dateTo) return `до ${shortDate(filters.dateTo)}`;
   return 'Все даты';
+}
+
+function sectionsLabel(sections: string[], excludedSections: string[], total: number) {
+  if (sections.length === 0 && excludedSections.length === 0) return 'Все';
+  if (sections.length === 1 && excludedSections.length === 0) return sections[0];
+  if (sections.length === 0) return `Без ${excludedSections.length} из ${total}`;
+  if (excludedSections.length === 0) return `${sections.length} из ${total} разделов`;
+  return `${sections.length} выбрано, без ${excludedSections.length}`;
+}
+
+function sectionFilterCount(filters: FiltersState) {
+  return filters.sections.length + filters.excludedSections.length;
+}
+
+function sectionFilterMeta(filters: FiltersState, total: number) {
+  const included = filters.sections.length;
+  const excluded = filters.excludedSections.length;
+  if (!included && !excluded) return `0 из ${total} разделов`;
+  if (!excluded) return `${included} из ${total} разделов`;
+  if (!included) return `Исключено ${excluded} из ${total}`;
+  return `Выбрано ${included}, исключено ${excluded}`;
 }
 
 function shortDate(value: string) {

@@ -47,12 +47,52 @@ describe('analytics selectors', () => {
       { ...row, path: '/about', section: '/about' },
       { ...row, path: '/unknown-page', section: '/unknown-page' },
       { ...row, path: '/xpvnsulc/captcha_image.php', section: '/xpvnsulc' },
+      { ...row, path: '/.env', section: '/.env' },
+      { ...row, path: '/secrets', section: '/secrets' },
+      { ...row, path: '/.git/HEAD', section: '/.git' },
+      { ...row, path: '/config.json', section: '/config.json' },
+      { ...row, path: '/static/jsrsasign-all-min.js.map', section: '/static' },
+      { ...row, path: 'https://servicepipe.ru/manifest.json', section: '/manifest.json' },
+      { ...row, path: 'https://servicepipe.ru/secrets.json', section: '/secrets.json' },
+      { ...row, path: 'https://servicepipe.ru/.aws/credentials', section: '/.aws' },
+      { ...row, path: 'https://servicepipe.ru/application.yml', section: '/application.yml' },
+      { ...row, path: 'https://servicepipe.ru/keyfile', section: '/keyfile' },
+      { ...row, path: 'https://servicepipe.ru/graphql', section: '/graphql' },
+      { ...row, path: 'https://servicepipe.ru/.cursor/mcp.json', section: '/.cursor' },
+      { ...row, path: 'https://servicepipe.ru/account.json', section: '/account.json' },
+      { ...row, path: '/docs/report.pdf', section: '/docs' },
     ]);
 
-    expect(rows.map((item) => item.section)).toEqual(['Главная страница', 'Блог', 'СМИ о нас', 'Продуктовые', 'Решения', 'Компания', 'Другое', 'Технические']);
-    expect(buildFilterOptions(rows).sections).toEqual(['Блог', 'СМИ о нас', 'Главная страница', 'Продуктовые', 'Решения', 'Компания', 'Технические', 'Другое']);
+    expect(rows.map((item) => item.section)).toEqual([
+      'Главная страница',
+      'Блог',
+      'СМИ о нас',
+      'Продуктовые',
+      'Решения',
+      'Компания',
+      'Другое',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'PDF',
+    ]);
+    expect(buildFilterOptions(rows).sections).toEqual(['Блог', 'СМИ о нас', 'Главная страница', 'Продуктовые', 'Решения', 'Компания', 'Технические', 'PDF', 'Другое']);
     expect(filterRows(rows, { sections: ['/blog'] })[0].section).toBe('Блог');
     expect(filterRows(rows, { sections: ['Продуктовые'] })[0].path).toBe('/dosgate/autopilot');
     expect(filterRows(rows, { sections: ['Компания'] }).map((item) => item.path)).toEqual(['/about']);
+    expect(filterRows(rows, { sections: ['PDF'] }).map((item) => item.path)).toEqual(['/docs/report.pdf']);
+    expect(filterRows(rows, { excludedSections: ['Технические'] }).map((item) => item.section)).not.toContain('Технические');
+    expect(filterRows(rows, { sections: ['Технические'], excludedSections: ['Технические'] })).toHaveLength(0);
   });
 });

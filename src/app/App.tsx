@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, FolderTree, GitBranch, LayoutGrid, SlidersHorizontal } from 'lucide-react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { FileText, GitBranch, LayoutGrid, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { emptyFilters, normalizeFilters, type FiltersState, type ImportedFileMeta, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
 import { clearPersistedState, loadPersistedState, savePersistedState } from '../shared/lib/storage';
 import { parseLogFile } from '../features/import/logParser';
@@ -7,6 +7,8 @@ import { formatNumber, pluralFiles } from '../shared/lib/format';
 import { readUrlState, writeUrlState } from '../entities/filter/urlState';
 import { useAnalytics } from '../features/analytics/useAnalytics';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
+import { AiChat } from '../features/ai/AiChat';
+import { AuthGate } from './AuthGate';
 
 type Screen = 'overview' | 'pages' | 'sitemap' | 'settings';
 
@@ -17,7 +19,7 @@ const screenMeta: Record<Screen, { title: string; subtitle: string }> = {
   overview: { title: 'Обзор', subtitle: 'Общая картина по запросам AI-ботов к сайту' },
   pages: { title: 'Страницы', subtitle: 'Пути, разделы и детальная статистика по AI-ботам' },
   sitemap: { title: 'Карта', subtitle: 'Структура сайта по sitemap с наложением логов' },
-  settings: { title: 'Настройки', subtitle: 'Загрузка логов и файлов сайта, очистка и базовые параметры' },
+  settings: { title: 'Настройки', subtitle: 'Загрузка логов, домен сайта, очистка и базовые параметры' },
 };
 
 function createFileMeta(file: File, rowCount: number): ImportedFileMeta {
@@ -35,6 +37,7 @@ function isScreen(value: unknown): value is Screen {
 }
 
 export function App() {
+  const aiAvailable = import.meta.env.DEV;
   const [isReady, setReady] = useState(false);
   const [rows, setRows] = useState<LogRow[]>([]);
   const [files, setFiles] = useState<ImportedFileMeta[]>([]);
@@ -45,6 +48,7 @@ export function App() {
   const [isParsing, setParsing] = useState(false);
   const [siteDomain, setSiteDomain] = useState(() => localStorage.getItem(siteDomainKey) || 'neralens.ru');
   const [filters, setFilters] = useState<FiltersState>(() => normalizeFilters(readUrlState().filters));
+  const [aiOpen, setAiOpen] = useState(false);
   const [activeScreen, setActiveScreen] = useState<Screen>(() => {
     const urlScreen = readUrlState().screen;
     if (isScreen(urlScreen)) return urlScreen;
@@ -85,7 +89,9 @@ export function App() {
     localStorage.setItem(siteDomainKey, siteDomain);
   }, [siteDomain]);
 
-  const analytics = useAnalytics(rows, filters, robotsTxt);
+  const deferredFilters = useDeferredValue(filters);
+  const analyticsPending = deferredFilters !== filters;
+  const analytics = useAnalytics(rows, deferredFilters, robotsTxt, activeScreen);
 
   const handleLogFiles = async (incoming: FileList | File[]) => {
     const selected = Array.from(incoming);
@@ -146,7 +152,7 @@ export function App() {
   );
 
   if (!isReady) {
-    return <main className="flex min-h-screen items-center justify-center text-sm font-bold text-aqua">Загрузка...</main>;
+    return <LoadingScreen />;
   }
 
   const content = rows.length ? (
@@ -157,8 +163,9 @@ export function App() {
       sitemapFiles={sitemapFiles}
       robotsTxt={robotsTxt}
       siteDomain={siteDomain}
-      filters={filters}
-      analytics={analytics}
+          filters={filters}
+          analytics={analytics}
+          analyticsPending={analyticsPending}
       onFiltersChange={setFilters}
       onResetFilters={() => setFilters(emptyFilters)}
       onPathSelect={(path) => setFilters((current) => ({ ...current, pathQuery: path }))}
@@ -180,7 +187,8 @@ export function App() {
   );
 
   return (
-    <div className="app-shell">
+    <AuthGate>
+      <div className="app-shell">
       {controls}
       <aside className="sidebar">
         <div className="brand">
@@ -196,6 +204,12 @@ export function App() {
           <button className={`nav-link ${activeScreen === 'sitemap' ? 'active' : ''}`} onClick={() => setActiveScreen('sitemap')}><GitBranch className="h-4 w-4" />Карта</button>
           <button className={`nav-link ${activeScreen === 'settings' ? 'active' : ''}`} onClick={() => setActiveScreen('settings')}><SlidersHorizontal className="h-4 w-4" />Настройки</button>
         </nav>
+        {aiAvailable && (
+          <button className="sidebar-ai-button" type="button" onClick={() => setAiOpen(true)}>
+            <Sparkles className="h-4 w-4" />
+            NeraLens AI
+          </button>
+        )}
       </aside>
       <main className="workspace">
         <header className="topbar">
@@ -203,14 +217,30 @@ export function App() {
             <h1 className="page-title">{screenMeta[activeScreen].title}</h1>
             <p className="page-subtitle">{screenMeta[activeScreen].subtitle}</p>
           </div>
-          <div className="row-count-badge">{formatNumber(analytics.filteredRows.length)} строк</div>
+          <div className="row-count-badge">{analyticsPending ? 'Обновляем...' : `${formatNumber(analytics.kpis.totalRequests)} строк`}</div>
         </header>
         {error && <div className="panel mb-3 p-3 text-sm text-danger">{error}</div>}
         {note && !error && <div className="panel mb-3 p-3 text-sm text-ink">{note}</div>}
         {isParsing && <div className="panel mb-3 p-3 text-sm font-bold text-aqua">Обработка...</div>}
         {content}
       </main>
-    </div>
+      {aiOpen && aiAvailable && (
+        <AiChat
+          open={aiOpen}
+          onClose={() => setAiOpen(false)}
+          analytics={analytics}
+        />
+      )}
+      </div>
+    </AuthGate>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <main className="loading-screen" aria-live="polite" aria-label="Загрузка NeraLens">
+      <span className="loading-spinner" aria-hidden="true" />
+    </main>
   );
 }
 

@@ -2,7 +2,7 @@ import LZString from 'lz-string';
 import { emptyFilters, normalizeFilters, type FiltersState } from '../../shared/types/domain';
 
 const compressedKey = 's';
-const activeKeys = [compressedKey, 'screen', 'dateFrom', 'dateTo', 'pathQuery', 'agentGroups', 'agentDetails', 'requestStatuses', 'sections', 'countries'];
+const activeKeys = [compressedKey, 'screen', 'dateFrom', 'dateTo', 'pathQuery', 'agentGroups', 'agentDetails', 'requestStatuses', 'sections', 'excludedSections', 'countries'];
 
 export function readUrlState(): { screen: string | null; filters: Partial<FiltersState> } {
   const params = new URLSearchParams(window.location.search);
@@ -27,6 +27,7 @@ export function readUrlState(): { screen: string | null; filters: Partial<Filter
     agentDetails: list('agentDetails'),
     requestStatuses: list('requestStatuses'),
     sections: list('sections'),
+    excludedSections: list('excludedSections'),
     countries: list('countries'),
   };
   return { screen: params.get('screen'), filters };

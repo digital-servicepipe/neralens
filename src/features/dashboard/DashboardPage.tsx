@@ -22,6 +22,7 @@ interface DashboardPageProps {
   siteDomain: string;
   filters: FiltersState;
   analytics: Analytics;
+  analyticsPending: boolean;
   onFiltersChange: React.Dispatch<React.SetStateAction<FiltersState>>;
   onResetFilters: () => void;
   onPathSelect: (path: string) => void;

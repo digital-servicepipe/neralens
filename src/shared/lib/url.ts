@@ -1,10 +1,27 @@
 import type { LogRow, PageType } from '../types/domain';
 
-export const siteSectionOrder = ['Новости', 'Блог', 'СМИ о нас', 'Главная страница', 'Продуктовые', 'Решения', 'Компания', 'Технические', 'Служебные', 'Файлы', 'Другое'] as const;
+export const siteSectionOrder = ['Новости', 'Блог', 'СМИ о нас', 'Главная страница', 'Продуктовые', 'Решения', 'Компания', 'Технические', 'Служебные', 'PDF', 'Файлы', 'Другое'] as const;
 
 const technicalPrefixes = ['/_', '/wp-', '/wp/', '/bitrix/', '/api/', '/admin', '/robots.txt', '/sitemap', '/xpvnsulc'];
+const technicalExactPaths = ['/graphql'];
+const technicalSegmentNames = ['.aws', '.cursor', '.git', 'git', 'secrets'];
+const technicalFileNames = [
+  '.env',
+  'account.json',
+  'application.yml',
+  'application.yaml',
+  'config.json',
+  'credentials',
+  'env',
+  'keyfile',
+  'manifest.json',
+  'mcp.json',
+  'secrets.json',
+];
+const technicalExtensions = /\.(?:map|ya?ml)$/i;
 const servicePrefixes = ['/cart', '/checkout', '/login', '/auth', '/search', '/feed'];
-const fileExtensions = /\.(?:jpg|jpeg|png|webp|gif|svg|ico|css|js|pdf|zip|xml|txt|csv|xlsx?)$/i;
+const pdfExtension = /\.pdf$/i;
+const fileExtensions = /\.(?:jpg|jpeg|png|webp|gif|svg|ico|css|js|zip|xml|txt|csv|xlsx?)$/i;
 
 const productPrefixes = [
   '/dosgate',
@@ -39,6 +56,20 @@ function startsWithAny(path: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
+function isTechnicalPath(path: string): boolean {
+  if (technicalPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(prefix))) return true;
+  if (technicalExactPaths.includes(path)) return true;
+  if (technicalExtensions.test(path)) return true;
+
+  const segments = path.split('/').filter(Boolean);
+  return segments.some((segment) => {
+    const name = segment.toLowerCase();
+    return technicalSegmentNames.includes(name)
+      || name.includes('.env')
+      || technicalFileNames.some((fileName) => name === fileName || name.startsWith(`${fileName}.`));
+  });
+}
+
 export function normalizePath(raw: string): string {
   const trimmed = String(raw || '').trim();
   if (!trimmed) return '/';
@@ -67,8 +98,9 @@ export function normalizePathWithQuery(raw: string): string {
 export function getSectionAndPageType(raw: string): { section: string; pageType: PageType } {
   const path = normalizePath(raw).toLowerCase();
   if (path === '/') return { section: 'Главная страница', pageType: 'other' };
-  if (technicalPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(prefix))) return { section: 'Технические', pageType: 'technical' };
+  if (isTechnicalPath(path)) return { section: 'Технические', pageType: 'technical' };
   if (servicePrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return { section: 'Служебные', pageType: 'service' };
+  if (pdfExtension.test(path)) return { section: 'PDF', pageType: 'file' };
   if (fileExtensions.test(path)) return { section: 'Файлы', pageType: 'file' };
   if (path === '/news' || path.startsWith('/news/')) return { section: 'Новости', pageType: 'other' };
   if (path === '/press-center' || path.startsWith('/press-center/')) return { section: 'СМИ о нас', pageType: 'other' };

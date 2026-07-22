@@ -56,6 +56,11 @@ describe('sitemap and robots', () => {
 
     expect(displayTitleForPath('/finance', catalog)).toBe('Высокоточная защита финансовых сервисов от кибератак и регуляторных рисков');
     expect(displayTitleForPath('/dosgate/autopilot', catalog)).toBe('DosGate Autopilot');
+    expect(displayTitleForPath('/price', catalog)).toBe('Цены');
+    expect(displayTitleForPath('/prices', catalog)).toBe('Цены');
+    expect(displayTitleForPath('/pricing', catalog)).toBe('Цены');
+    expect(displayTitleForPath('/certificates', catalog)).toBe('Сертификаты');
+    expect(displayTitleForPath('/certificates-and-licenses', catalog)).toBe('Сертификаты и лицензии');
   });
 
   it('supports robots wildcard disallow', () => {

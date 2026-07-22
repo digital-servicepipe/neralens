@@ -36,11 +36,40 @@ describe('log import', () => {
   it('parses aggregated csv rows without uniq_id and bot_type', async () => {
     const parsed = await parseCsvText(newCsv);
     expect(parsed.rowCount).toBe(5);
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].requestCount).toBe(3);
     expect(parsed.rows[0].uniqId).toContain('/press-center/page');
     expect(parsed.rows[0].botType).toBe('ChatGPT-User');
     expect(parsed.rows[0].agentGroup).toBe('ai_assistant_bot');
-    expect(parsed.rows[3].agentGroup).toBe('ai_bot_search_crawler');
-    expect(parsed.rows[3].host).toBe('servicepipe.ru');
+    expect(parsed.rows[1].agentGroup).toBe('ai_bot_search_crawler');
+    expect(parsed.rows[1].host).toBe('servicepipe.ru');
+  });
+
+  it('keeps explicit log calendar date for midnight rows', async () => {
+    const parsed = await parseCsvText([
+      'datetime,http_user_agent,path,count',
+      '2026-07-15 00:00:00,ClaudeBot/1.0,/robots.txt,2',
+    ].join('\n'));
+
+    expect(parsed.rowCount).toBe(2);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].requestCount).toBe(2);
+    expect(parsed.rows.every((row) => row.date === '2026-07-15')).toBe(true);
+    expect(parsed.rows[0].hour).toBe(0);
+    expect(parsed.rows[0].minute).toBe(0);
+  });
+
+  it('uses datetime as the source of truth when date column differs', async () => {
+    const parsed = await parseCsvText([
+      'datetime,date,http_user_agent,path,count',
+      '2026-06-30 00:00:00,2026-06-29,ClaudeBot/1.0,/robots.txt,1',
+    ].join('\n'));
+
+    expect(parsed.rows[0].datetimeRaw).toBe('2026-06-30 00:00:00');
+    expect(parsed.rows[0].dateRaw).toBe('2026-06-29');
+    expect(parsed.rows[0].date).toBe('2026-06-30');
+    expect(parsed.rows[0].hour).toBe(0);
+    expect(parsed.rows[0].minute).toBe(0);
   });
 
   it('parses minimal rows without netname and action', async () => {

@@ -1,0 +1,9 @@
+services:
+  neralens:
+    build: .
+    container_name: neralens-react-dev
+    ports:
+      - "127.0.0.1:9522:9522"
+    environment:
+      NODE_ENV: development
+    restart: unless-stopped

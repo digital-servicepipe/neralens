@@ -3,16 +3,17 @@ import { agentGroupDescriptions, agentGroupLabels, agentGroups, botSignatures, g
 import { formatNumber, formatPercent } from '../../shared/lib/format';
 import { Panel } from '../../shared/ui/Panel';
 import type { LogRow } from '../../shared/types/domain';
+import { requestCountFor, totalRequestCount } from '../analytics/selectors';
 import { BotTokenList } from './BotTokenList';
 
 export function BotReferencePanel({ rows }: { rows: LogRow[] }) {
-  const total = rows.length || 1;
+  const total = totalRequestCount(rows) || 1;
   return (
     <Panel title="Справка по группам AI-ботов" subtitle="Справочник по 4 основным группам AI-ботов." action={<Info className="h-4 w-4 text-aqua" />}>
       <div className="grid gap-3">
         {agentGroups.map((group) => {
           const active = new Set(rows.filter((row) => row.agentGroup === group).map((row) => getBotDisplayName(row.botType, row.httpUserAgent)));
-          const count = rows.filter((row) => row.agentGroup === group).length;
+          const count = rows.filter((row) => row.agentGroup === group).reduce((sum, row) => sum + requestCountFor(row), 0);
           const ordered = [...Array.from(active).map((name) => ({ name, active: true })), ...botSignatures[group].filter((name) => !active.has(name)).map((name) => ({ name, active: false }))];
           return (
             <section className="bg-surface p-3" style={{ border: '1px solid var(--fk-border)', borderRadius: 8 }} key={group}>

@@ -26,10 +26,8 @@ interface DashboardPageProps {
   onFiltersChange: React.Dispatch<React.SetStateAction<FiltersState>>;
   onResetFilters: () => void;
   onPathSelect: (path: string) => void;
-  onSiteDomainChange: (domain: string) => void;
   onAddLogs: () => void;
   onSitemapUpload: () => void;
-  onRobotsUpload: () => void;
   onClearLogs: () => void;
 }
 
@@ -42,12 +40,8 @@ export function DashboardPage(props: DashboardPageProps) {
         rows={props.rows}
         files={props.files}
         sitemapFiles={props.sitemapFiles}
-        robotsTxt={props.robotsTxt}
-        siteDomain={props.siteDomain}
-        onSiteDomainChange={props.onSiteDomainChange}
         onAddLogs={props.onAddLogs}
         onSitemapUpload={props.onSitemapUpload}
-        onRobotsUpload={props.onRobotsUpload}
         onClearLogs={props.onClearLogs}
       />
     );

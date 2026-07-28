@@ -55,6 +55,7 @@ export function App() {
   const [files, setFiles] = useState<ImportedFileMeta[]>([]);
   const [sitemapFiles, setSitemapFiles] = useState<TextFilePayload[]>([]);
   const [robotsTxt, setRobotsTxt] = useState('');
+  const [servicepipeLogs, setServicepipeLogs] = useState(true);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [isParsing, setParsing] = useState(false);
@@ -76,6 +77,7 @@ export function App() {
         setFiles(state.files);
         setSitemapFiles(state.sitemapFiles);
         setRobotsTxt(state.robotsTxt);
+        setServicepipeLogs(state.servicepipeLogs);
       })
       .catch(() => undefined)
       .finally(() => setReady(true));
@@ -86,6 +88,7 @@ export function App() {
     setFiles(state.files);
     setSitemapFiles(state.sitemapFiles);
     setRobotsTxt(state.robotsTxt);
+    setServicepipeLogs(state.servicepipeLogs);
     await savePersistedState(state);
     setError('');
   }, []);
@@ -97,8 +100,8 @@ export function App() {
 
   useEffect(() => {
     if (!isReady) return;
-    void savePersistedState({ version: 3, rows, files, sitemapFiles, robotsTxt });
-  }, [files, isReady, robotsTxt, rows, sitemapFiles]);
+    void savePersistedState({ version: 4, rows, files, sitemapFiles, robotsTxt, servicepipeLogs });
+  }, [files, isReady, robotsTxt, rows, servicepipeLogs, sitemapFiles]);
 
   const deferredFilters = useDeferredValue(filters);
   const analyticsPending = deferredFilters !== filters;
@@ -115,7 +118,7 @@ export function App() {
       const parsed = await Promise.all(selected.map(async (file) => ({ file, parsed: await parseLogFile(file) })));
       const metas = parsed.map(({ file, parsed: result }) => createFileMeta(file, result.rowCount));
       const nextRows = [...rows, ...parsed.flatMap((item) => item.parsed.rows)];
-      await persist({ version: 3, rows: nextRows, files: [...files, ...metas], sitemapFiles, robotsTxt });
+      await persist({ version: 4, rows: nextRows, files: [...files, ...metas], sitemapFiles, robotsTxt, servicepipeLogs });
       const total = parsed.reduce((sum, item) => sum + item.parsed.rowCount, 0);
       const usedUaGroup = parsed.some((item) => item.parsed.usedUaGroupColumn);
       setNote(`Загрузка прошла нормально: ${selected.length} ${pluralFiles(selected.length)}, ${formatNumber(total)} строк. ${usedUaGroup ? 'Группы ботов определены из файла.' : 'Группы ботов определены автоматически.'}`);
@@ -132,7 +135,7 @@ export function App() {
     if (!selected.length) return;
     setError('');
     const next = await Promise.all(selected.map(async (file) => ({ name: file.name, content: await file.text() })));
-    await persist({ version: 3, rows, files, sitemapFiles: mergeTextFiles(sitemapFiles, next), robotsTxt });
+    await persist({ version: 4, rows, files, sitemapFiles: mergeTextFiles(sitemapFiles, next), robotsTxt, servicepipeLogs });
     setActiveScreen('settings');
   };
 
@@ -142,6 +145,7 @@ export function App() {
     setFiles([]);
     setSitemapFiles([]);
     setRobotsTxt('');
+    setServicepipeLogs(true);
     setFilters(emptyFilters);
     setActiveScreen('overview');
     setNote('');
@@ -171,6 +175,7 @@ export function App() {
       sitemapFiles={sitemapFiles}
       robotsTxt={robotsTxt}
       siteDomain={siteDomain}
+      servicepipeLogs={servicepipeLogs}
       filters={filters}
       analytics={analytics}
       analyticsPending={analyticsPending}
@@ -180,6 +185,7 @@ export function App() {
       onAddLogs={() => logInputRef.current?.click()}
       onSitemapUpload={() => sitemapInputRef.current?.click()}
       onClearLogs={() => void resetAll()}
+      onServicepipeLogsChange={setServicepipeLogs}
     />
   ) : (
     <EmptyImportScreen

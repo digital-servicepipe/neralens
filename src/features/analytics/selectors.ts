@@ -281,8 +281,8 @@ export function buildUrlSummaries(rows: LogRow[], robotsTxt: string): UrlSummary
     .sort((a, b) => b.total - a.total);
 }
 
-export function parseAllSitemapFiles(files: TextFilePayload[]): SitemapUrl[] {
-  const titleCatalog = buildPageTitleCatalog(files);
+export function parseAllSitemapFiles(files: TextFilePayload[], includeServicepipeTitles = true): SitemapUrl[] {
+  const titleCatalog = buildPageTitleCatalog(files, { includeServicepipeTitles });
   return files.flatMap((file) => {
     if (file.name.toLowerCase().endsWith('.json') || ['{', '['].includes(file.content.trimStart()[0] ?? '')) return [];
     return parseSitemapXml(file.content, titleCatalog).map((url) => ({ ...url, group: file.name }));

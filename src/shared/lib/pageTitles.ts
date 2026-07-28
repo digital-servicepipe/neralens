@@ -11,6 +11,10 @@ export interface PageTitleInfo {
 
 export type PageTitleCatalog = Map<string, PageTitleInfo>;
 
+interface PageTitleCatalogOptions {
+  includeServicepipeTitles?: boolean;
+}
+
 const routeTitles: Record<string, string> = {
   '/': 'Разрабатываем системы высокоточного контроля трафика',
   '/about': 'Кто мы',
@@ -142,20 +146,23 @@ function parseJsonTitleFile(file: TextFilePayload, catalog: PageTitleCatalog) {
   });
 }
 
-export function buildPageTitleCatalog(files: TextFilePayload[] = []): PageTitleCatalog {
+export function buildPageTitleCatalog(files: TextFilePayload[] = [], options: PageTitleCatalogOptions = {}): PageTitleCatalog {
+  const includeServicepipeTitles = options.includeServicepipeTitles ?? true;
   const catalog: PageTitleCatalog = new Map();
-  Object.entries(servicepipePageTitles).forEach(([path, title]) => {
-    const normalized = normalizePath(path);
-    catalog.set(normalized, {
-      path: normalized,
-      title,
-      source: 'builtin',
-      section: normalized.startsWith('/blog/') ? 'blog' : normalized.startsWith('/news/') || normalized.startsWith('/press-center/') ? 'news' : undefined,
+  if (includeServicepipeTitles) {
+    Object.entries(servicepipePageTitles).forEach(([path, title]) => {
+      const normalized = normalizePath(path);
+      catalog.set(normalized, {
+        path: normalized,
+        title,
+        source: 'builtin',
+        section: normalized.startsWith('/blog/') ? 'blog' : normalized.startsWith('/news/') || normalized.startsWith('/press-center/') ? 'news' : undefined,
+      });
     });
-  });
-  Object.entries(routeTitles).forEach(([path, title]) => {
-    catalog.set(path, { path, title, source: 'route', section: 'main' });
-  });
+    Object.entries(routeTitles).forEach(([path, title]) => {
+      catalog.set(path, { path, title, source: 'route', section: 'main' });
+    });
+  }
 
   files.forEach((file) => {
     const firstChar = file.content.trimStart()[0];

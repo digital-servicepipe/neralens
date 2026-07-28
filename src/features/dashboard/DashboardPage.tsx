@@ -20,6 +20,7 @@ interface DashboardPageProps {
   sitemapFiles: TextFilePayload[];
   robotsTxt: string;
   siteDomain: string;
+  servicepipeLogs: boolean;
   filters: FiltersState;
   analytics: Analytics;
   analyticsPending: boolean;
@@ -29,10 +30,14 @@ interface DashboardPageProps {
   onAddLogs: () => void;
   onSitemapUpload: () => void;
   onClearLogs: () => void;
+  onServicepipeLogsChange: (value: boolean) => void;
 }
 
 export function DashboardPage(props: DashboardPageProps) {
-  const pageTitleCatalog = useMemo(() => buildPageTitleCatalog(props.sitemapFiles), [props.sitemapFiles]);
+  const pageTitleCatalog = useMemo(
+    () => buildPageTitleCatalog(props.sitemapFiles, { includeServicepipeTitles: props.servicepipeLogs }),
+    [props.servicepipeLogs, props.sitemapFiles],
+  );
 
   if (props.screen === 'settings') {
     return (
@@ -40,9 +45,11 @@ export function DashboardPage(props: DashboardPageProps) {
         rows={props.rows}
         files={props.files}
         sitemapFiles={props.sitemapFiles}
+        servicepipeLogs={props.servicepipeLogs}
         onAddLogs={props.onAddLogs}
         onSitemapUpload={props.onSitemapUpload}
         onClearLogs={props.onClearLogs}
+        onServicepipeLogsChange={props.onServicepipeLogsChange}
       />
     );
   }
@@ -60,7 +67,7 @@ export function DashboardPage(props: DashboardPageProps) {
     return (
       <div className="view-stack">
         <FiltersPanel filters={props.filters} options={props.analytics.filterOptions} onChange={props.onFiltersChange} onReset={props.onResetFilters} />
-        <SiteMapBoard rows={props.analytics.filteredRows} filters={props.filters} sitemapFiles={props.sitemapFiles} robotsTxt={props.robotsTxt} siteDomain={props.siteDomain} onPathSelect={props.onPathSelect} />
+        <SiteMapBoard rows={props.analytics.filteredRows} filters={props.filters} sitemapFiles={props.sitemapFiles} robotsTxt={props.robotsTxt} siteDomain={props.siteDomain} servicepipeLogs={props.servicepipeLogs} onPathSelect={props.onPathSelect} />
       </div>
     );
   }

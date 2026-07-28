@@ -51,6 +51,13 @@ describe('sitemap and robots', () => {
     expect(displayTitleForPath('/press-center/rossiyskiye_banki_fiksiruyut_rost_kiberatak_s_ii', catalog)).toBe('Российские банки фиксируют рост кибератак с использованием ИИ');
   });
 
+  it('can disable bundled Servicepipe titles for other sites', () => {
+    const catalog = buildPageTitleCatalog([], { includeServicepipeTitles: false });
+
+    expect(displayTitleForPath('/blog/behavioral-factors-cheating', catalog)).toBe('behavioral factors cheating');
+    expect(displayTitleForPath('/finance', catalog)).toBe('finance');
+  });
+
   it('has readable titles for main sitemap pages', () => {
     const catalog = buildPageTitleCatalog();
 

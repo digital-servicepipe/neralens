@@ -1,4 +1,4 @@
-import { Database, FileText, Network, Trash2, Upload } from 'lucide-react';
+import { Database, FileText, Network, SlidersHorizontal, Trash2, Upload } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { parseAllSitemapFiles, totalRequestCount } from '../analytics/selectors';
 import { formatNumber } from '../../shared/lib/format';
@@ -8,13 +8,15 @@ interface SettingsPageProps {
   rows: LogRow[];
   files: ImportedFileMeta[];
   sitemapFiles: TextFilePayload[];
+  servicepipeLogs: boolean;
   onAddLogs: () => void;
   onSitemapUpload: () => void;
   onClearLogs: () => void;
+  onServicepipeLogsChange: (value: boolean) => void;
 }
 
-export function SettingsPage({ rows, files, sitemapFiles, onAddLogs, onSitemapUpload, onClearLogs }: SettingsPageProps) {
-  const sitemapUrls = useMemo(() => parseAllSitemapFiles(sitemapFiles), [sitemapFiles]);
+export function SettingsPage({ rows, files, sitemapFiles, servicepipeLogs, onAddLogs, onSitemapUpload, onClearLogs, onServicepipeLogsChange }: SettingsPageProps) {
+  const sitemapUrls = useMemo(() => parseAllSitemapFiles(sitemapFiles, servicepipeLogs), [servicepipeLogs, sitemapFiles]);
   const dates = rows.map((row) => row.date).filter((date) => date !== 'Unknown').sort();
   const period = dates.length ? `${formatDate(dates[0])} - ${formatDate(dates.at(-1) ?? dates[0])}` : 'Не определён';
   const uniquePaths = new Set(rows.map((row) => row.path)).size;
@@ -80,6 +82,18 @@ export function SettingsPage({ rows, files, sitemapFiles, onAddLogs, onSitemapUp
             Загрузить XML/JSON
           </button>
         </div>
+      </section>
+
+      <section className="panel settings-options-card">
+        <CardHead icon={<SlidersHorizontal className="h-5 w-5" />} title="Servicepipe" subtitle="Встроенные названия страниц для логов Servicepipe." />
+        <label className="settings-toggle-row">
+          <span>
+            <strong>Логи Servicepipe</strong>
+            <small>{servicepipeLogs ? 'Да: подставляем встроенные русские тайтлы.' : 'Нет: показываем названия из URL или загруженного JSON.'}</small>
+          </span>
+          <input type="checkbox" checked={servicepipeLogs} onChange={(event) => onServicepipeLogsChange(event.currentTarget.checked)} />
+          <span className="settings-toggle" aria-hidden="true" />
+        </label>
       </section>
 
       <section className="panel settings-danger-card">

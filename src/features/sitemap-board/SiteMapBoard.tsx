@@ -100,6 +100,7 @@ export function SiteMapBoard({
   sitemapFiles,
   robotsTxt,
   siteDomain,
+  servicepipeLogs,
   onPathSelect,
 }: {
   rows: LogRow[];
@@ -107,10 +108,11 @@ export function SiteMapBoard({
   sitemapFiles: TextFilePayload[];
   robotsTxt: string;
   siteDomain: string;
+  servicepipeLogs: boolean;
   onPathSelect: (path: string) => void;
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
-  const sitemapUrls = useMemo(() => parseAllSitemapFiles(sitemapFiles), [sitemapFiles]);
+  const sitemapUrls = useMemo(() => parseAllSitemapFiles(sitemapFiles, servicepipeLogs), [servicepipeLogs, sitemapFiles]);
   const summaries = useMemo(() => buildUrlSummaries(rows, robotsTxt), [rows, robotsTxt]);
   const robots = useMemo(() => parseRobotsTxt(robotsTxt), [robotsTxt]);
   const sitemapByPath = useMemo(() => new Map(sitemapUrls.map((url) => [url.path, url])), [sitemapUrls]);

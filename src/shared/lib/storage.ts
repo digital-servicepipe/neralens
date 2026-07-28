@@ -10,11 +10,12 @@ const fallbackKey = `${dbName}:${stateKey}`;
 const compressedFallbackKey = `${fallbackKey}:compressed`;
 
 const emptyState: PersistedState = {
-  version: 3,
+  version: 4,
   rows: [],
   files: [],
   sitemapFiles: [],
   robotsTxt: '',
+  servicepipeLogs: true,
 };
 
 async function db() {
@@ -43,6 +44,7 @@ function normalizePersistedState(value: Partial<PersistedState> | null | undefin
     files: Array.isArray(value.files) ? value.files : [],
     sitemapFiles: Array.isArray(value.sitemapFiles) ? value.sitemapFiles : [],
     robotsTxt: typeof value.robotsTxt === 'string' ? value.robotsTxt : '',
+    servicepipeLogs: typeof value.servicepipeLogs === 'boolean' ? value.servicepipeLogs : true,
   };
 }
 

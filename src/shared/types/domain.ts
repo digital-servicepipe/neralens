@@ -82,11 +82,12 @@ export interface RobotsRule {
 }
 
 export interface PersistedState {
-  version: 3;
+  version: number;
   rows: LogRow[];
   files: ImportedFileMeta[];
   sitemapFiles: TextFilePayload[];
   robotsTxt: string;
+  servicepipeLogs: boolean;
 }
 
 export const emptyFilters: FiltersState = {

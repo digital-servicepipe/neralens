@@ -32,6 +32,16 @@ describe('log import', () => {
     expect(parsed.rows[0].agentGroup).toBe('ai_data_scraper_bot');
   });
 
+  it('strips query strings and encoded tracking params from paths', async () => {
+    const parsed = await parseCsvText([
+      'datetime,http_user_agent,path,count',
+      '2026-07-15 10:00:00,GPTBot/1.0,/search%3Fs=term%26utm_source=bot,1',
+      '2026-07-15 10:01:00,GPTBot/1.0,https://example.com/docs/page?utm_source=bot,1',
+    ].join('\n'));
+
+    expect(parsed.rows.map((row) => row.path)).toEqual(['/search', '/docs/page']);
+  });
+
   it('parses aggregated csv rows without uniq_id and bot_type', async () => {
     const parsed = await parseCsvText(newCsv);
     expect(parsed.rowCount).toBe(5);

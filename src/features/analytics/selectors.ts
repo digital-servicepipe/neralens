@@ -1,7 +1,7 @@
 import { getBotDisplayName } from '../bots/botDictionary';
 import { disallowMatches, parseRobotsTxt, parseSitemapXml } from '../sitemap-board/sitemapParser';
 import { normalizeFilters, type AgentGroup, type FiltersState, type LogRow, type SitemapUrl, type TextFilePayload } from '../../shared/types/domain';
-import { getSectionAndPageType, siteSectionOrder } from '../../shared/lib/url';
+import { getSectionAndPageType, normalizePath, singletonPageSection, specialSectionOrder } from '../../shared/lib/url';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
 
 export interface CountShare {
@@ -40,22 +40,74 @@ export function totalRequestCount(rows: Array<LogRow | AnalyticsRow>) {
   return rows.reduce((sum, row) => sum + requestCountFor(row), 0);
 }
 
-export function refineSections(rows: LogRow[]): AnalyticsRow[] {
-  return rows.map((row) => {
+function isUrlSegmentSection(section: string): boolean {
+  return section.startsWith('/');
+}
+
+function hasNestedPath(path: string): boolean {
+  return normalizePath(path).split('/').filter(Boolean).length > 1;
+}
+
+function buildPromotedSections(rows: LogRow[]): Set<string> {
+  const groups = new Map<string, { nestedPaths: Set<string> }>();
+
+  rows.forEach((row) => {
     const page = getSectionAndPageType(row.path);
+    if (!isUrlSegmentSection(page.section)) return;
+    const item = groups.get(page.section) ?? { nestedPaths: new Set<string>() };
+    if (hasNestedPath(row.path)) item.nestedPaths.add(normalizePath(row.path));
+    groups.set(page.section, item);
+  });
+
+  const promoted = new Set<string>();
+  groups.forEach((item, section) => {
+    if (item.nestedPaths.size >= 3) {
+      promoted.add(section);
+    }
+  });
+  return promoted;
+}
+
+export function refineSections(rows: LogRow[]): AnalyticsRow[] {
+  const promotedSections = buildPromotedSections(rows);
+  return rows.map((row) => {
+    const path = normalizePath(row.path);
+    const page = getSectionAndPageType(path);
+    const section = isUrlSegmentSection(page.section) && !promotedSections.has(page.section)
+      ? singletonPageSection
+      : page.section;
     return {
       ...row,
-      section: page.section,
+      path,
+      section,
       pageType: page.pageType,
       botName: getBotDisplayName(row.botType, row.httpUserAgent),
-      pathLower: row.path.toLowerCase(),
+      pathLower: path.toLowerCase(),
     };
-  });
+  }).filter((row) => row.pageType !== 'technical');
 }
 
 function normalizeSectionFilter(section: string): string {
-  if ((siteSectionOrder as readonly string[]).includes(section)) return section;
+  const legacySections: Record<string, string> = {
+    'Новости': '/news',
+    'Блог': '/blog',
+    'СМИ о нас': '/press-center',
+    'Продуктовые': '/products',
+    'Решения': '/solutions',
+    'Компания': '/company',
+    'Служебные': '/service',
+    'Другое': '/other',
+  };
+  if ((specialSectionOrder as readonly string[]).includes(section)) return section;
+  if (legacySections[section]) return legacySections[section];
+  if (section.startsWith('/')) return getSectionAndPageType(section).section;
   return getSectionAndPageType(section).section;
+}
+
+function sectionSortKey(section: string): [number, number, string] {
+  const specialIndex = specialSectionOrder.indexOf(section as (typeof specialSectionOrder)[number]);
+  if (specialIndex !== -1) return [0, specialIndex, section];
+  return [1, 0, section];
 }
 
 export function filterRows<T extends LogRow | AnalyticsRow>(rows: T[], filters: Partial<FiltersState>): T[] {
@@ -145,10 +197,11 @@ export function buildFilterOptions(rows: Array<LogRow | AnalyticsRow>) {
   });
 
   const sections = Array.from(sectionSet).sort((a, b) => {
-    const indexA = siteSectionOrder.indexOf(a as (typeof siteSectionOrder)[number]);
-    const indexB = siteSectionOrder.indexOf(b as (typeof siteSectionOrder)[number]);
-    if (indexA !== -1 || indexB !== -1) return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-    return a.localeCompare(b, 'ru');
+    const [groupA, indexA, labelA] = sectionSortKey(a);
+    const [groupB, indexB, labelB] = sectionSortKey(b);
+    if (groupA !== groupB) return groupA - groupB;
+    if (indexA !== indexB) return indexA - indexB;
+    return labelA.localeCompare(labelB, 'ru');
   });
 
   return {

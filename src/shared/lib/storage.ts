@@ -1,6 +1,7 @@
 import { openDB } from 'idb';
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 import { parseLogDate } from './logDate';
+import { normalizePath } from './url';
 import type { LogRow, PersistedState } from '../types/domain';
 
 const dbName = 'ai-analytics-dashboard';
@@ -38,6 +39,7 @@ function normalizePersistedState(value: Partial<PersistedState> | null | undefin
       return {
         ...row,
         ...parsed,
+        path: normalizePath(row.path ?? '/'),
         requestCount: row.requestCount ?? 1,
       };
     })),

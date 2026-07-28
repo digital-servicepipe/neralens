@@ -37,17 +37,29 @@ describe('analytics selectors', () => {
     expect(filterRows([row], { agentGroups: ['ai_bot_search_crawler'] })).toHaveLength(1);
   });
 
-  it('groups Servicepipe paths into product site sections', () => {
+  it('keeps only real nested URL sections and removes technical rows from analytics', () => {
     const rows = refineSections([
       { ...row, path: '/', section: '/' },
       { ...row, path: '/blog/waf-or-bot-protection', section: '/blog' },
-      { ...row, path: '/press-center/example', section: '/press-center' },
-      { ...row, path: '/dosgate/autopilot', section: '/dosgate' },
+      { ...row, path: '/blog/ai-crawlers', section: '/blog' },
+      { ...row, path: '/blog/llm-bots', section: '/blog' },
+      { ...row, path: '/docs/intro', section: '/docs' },
+      { ...row, path: '/docs/api/auth', section: '/docs' },
+      { ...row, path: '/docs/api/rate-limits', section: '/docs' },
       { ...row, path: '/finance', section: '/finance' },
       { ...row, path: '/about', section: '/about' },
       { ...row, path: '/unknown-page', section: '/unknown-page' },
+      { ...row, path: '/search%3Fs=search-word%26utm_source=bot', section: '/search' },
+      { ...row, path: '/pricing', requestCount: 12, section: '/pricing' },
       { ...row, path: '/xpvnsulc/captcha_image.php', section: '/xpvnsulc' },
+      { ...row, path: '/app_dev.php', section: '/app_dev.php' },
+      { ...row, path: '/app_dev.php/_profiler', section: '/app_dev.php' },
+      { ...row, path: '/captcha_image.php', section: '/captcha_image.php' },
+      { ...row, path: '/config', section: '/config' },
+      { ...row, path: '/graphql', section: '/graphql' },
+      { ...row, path: '/server-info', section: '/server-info' },
       { ...row, path: '/.env', section: '/.env' },
+      { ...row, path: '/.bash_history', section: '/.bash_history' },
       { ...row, path: '/secrets', section: '/secrets' },
       { ...row, path: '/.git/HEAD', section: '/.git' },
       { ...row, path: '/config.json', section: '/config.json' },
@@ -57,42 +69,46 @@ describe('analytics selectors', () => {
       { ...row, path: 'https://servicepipe.ru/.aws/credentials', section: '/.aws' },
       { ...row, path: 'https://servicepipe.ru/application.yml', section: '/application.yml' },
       { ...row, path: 'https://servicepipe.ru/keyfile', section: '/keyfile' },
-      { ...row, path: 'https://servicepipe.ru/graphql', section: '/graphql' },
       { ...row, path: 'https://servicepipe.ru/.cursor/mcp.json', section: '/.cursor' },
       { ...row, path: 'https://servicepipe.ru/account.json', section: '/account.json' },
       { ...row, path: '/docs/report.pdf', section: '/docs' },
     ]);
 
+    expect(rows.map((item) => item.path)).toEqual([
+      '/',
+      '/blog/waf-or-bot-protection',
+      '/blog/ai-crawlers',
+      '/blog/llm-bots',
+      '/docs/intro',
+      '/docs/api/auth',
+      '/docs/api/rate-limits',
+      '/finance',
+      '/about',
+      '/unknown-page',
+      '/search',
+      '/pricing',
+      '/docs/report.pdf',
+    ]);
     expect(rows.map((item) => item.section)).toEqual([
       'Главная страница',
-      'Блог',
-      'СМИ о нас',
-      'Продуктовые',
-      'Решения',
-      'Компания',
-      'Другое',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
-      'Технические',
+      '/blog',
+      '/blog',
+      '/blog',
+      '/docs',
+      '/docs',
+      '/docs',
+      'Страницы',
+      'Страницы',
+      'Страницы',
+      'Страницы',
+      'Страницы',
       'PDF',
     ]);
-    expect(buildFilterOptions(rows).sections).toEqual(['Блог', 'СМИ о нас', 'Главная страница', 'Продуктовые', 'Решения', 'Компания', 'Технические', 'PDF', 'Другое']);
-    expect(filterRows(rows, { sections: ['/blog'] })[0].section).toBe('Блог');
-    expect(filterRows(rows, { sections: ['Продуктовые'] })[0].path).toBe('/dosgate/autopilot');
-    expect(filterRows(rows, { sections: ['Компания'] }).map((item) => item.path)).toEqual(['/about']);
+    expect(buildFilterOptions(rows).sections).toEqual(['Главная страница', 'PDF', 'Страницы', '/blog', '/docs']);
+    expect(filterRows(rows, { sections: ['/blog'] })).toHaveLength(3);
+    expect(filterRows(rows, { sections: ['/docs'] }).map((item) => item.path)).toEqual(['/docs/intro', '/docs/api/auth', '/docs/api/rate-limits']);
+    expect(filterRows(rows, { sections: ['Страницы'] }).map((item) => item.path)).toEqual(['/finance', '/about', '/unknown-page', '/search', '/pricing']);
     expect(filterRows(rows, { sections: ['PDF'] }).map((item) => item.path)).toEqual(['/docs/report.pdf']);
-    expect(filterRows(rows, { excludedSections: ['Технические'] }).map((item) => item.section)).not.toContain('Технические');
-    expect(filterRows(rows, { sections: ['Технические'], excludedSections: ['Технические'] })).toHaveLength(0);
+    expect(rows.map((item) => item.section)).not.toContain('Технические');
   });
 });

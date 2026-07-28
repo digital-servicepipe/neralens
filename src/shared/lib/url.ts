@@ -1,60 +1,43 @@
 import type { LogRow, PageType } from '../types/domain';
 
-export const siteSectionOrder = ['Новости', 'Блог', 'СМИ о нас', 'Главная страница', 'Продуктовые', 'Решения', 'Компания', 'Технические', 'Служебные', 'PDF', 'Файлы', 'Другое'] as const;
+export const singletonPageSection = 'Страницы';
+export const specialSectionOrder = ['Главная страница', 'Технические', 'PDF', 'Файлы', singletonPageSection] as const;
 
 const technicalPrefixes = ['/_', '/wp-', '/wp/', '/bitrix/', '/api/', '/admin', '/robots.txt', '/sitemap', '/xpvnsulc'];
-const technicalExactPaths = ['/graphql'];
-const technicalSegmentNames = ['.aws', '.cursor', '.git', 'git', 'secrets'];
+const technicalExactPaths = ['/graphql', '/server-info', '/server-status'];
+const technicalSegmentNames = ['.aws', '.cursor', '.git', 'git', 'secrets', 'config'];
 const technicalFileNames = [
+  '.bash_history',
+  '.bash_profile',
+  '.bashrc',
   '.env',
   'account.json',
   'application.yml',
   'application.yaml',
+  'composer.json',
+  'composer.lock',
   'config.json',
   'credentials',
   'env',
   'keyfile',
   'manifest.json',
   'mcp.json',
+  'package-lock.json',
+  'package.json',
+  'phpinfo.php',
   'secrets.json',
+  'web.config',
 ];
-const technicalExtensions = /\.(?:map|ya?ml)$/i;
-const servicePrefixes = ['/cart', '/checkout', '/login', '/auth', '/search', '/feed'];
+const technicalExtensions = /\.(?:bak|conf|config|ini|log|map|sql|ya?ml)$/i;
+const technicalPhpFileNames = [
+  'app_dev.php',
+  'captcha_image.php',
+  'index_dev.php',
+  'phpinfo.php',
+  'xmlrpc.php',
+];
 const pdfExtension = /\.pdf$/i;
 const fileExtensions = /\.(?:jpg|jpeg|png|webp|gif|svg|ico|css|js|zip|xml|txt|csv|xlsx?)$/i;
-
-const productPrefixes = [
-  '/dosgate',
-  '/flowcollector',
-  '/ip-transit',
-  '/cybert',
-  '/web-ddos-protection',
-  '/antibot',
-  '/antifraud',
-  '/waf',
-  '/secure-dns-hosting',
-  '/visibla',
-  '/stress-test',
-  '/web-log-analysis',
-];
-
-const solutionPrefixes = ['/finance', '/telecom', '/retail', '/marketing', '/migration'];
-
-const companyPrefixes = [
-  '/about',
-  '/career',
-  '/it-career-start',
-  '/cybersecurity-lab',
-  '/contacts',
-  '/why-servicepipe',
-  '/partners',
-  '/education',
-  '/events',
-];
-
-function startsWithAny(path: string, prefixes: string[]): boolean {
-  return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
-}
 
 function isTechnicalPath(path: string): boolean {
   if (technicalPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(prefix))) return true;
@@ -64,10 +47,27 @@ function isTechnicalPath(path: string): boolean {
   const segments = path.split('/').filter(Boolean);
   return segments.some((segment) => {
     const name = segment.toLowerCase();
-    return technicalSegmentNames.includes(name)
+    return name.startsWith('.')
+      || name.startsWith('_')
+      || technicalSegmentNames.includes(name)
       || name.includes('.env')
+      || technicalPhpFileNames.includes(name)
       || technicalFileNames.some((fileName) => name === fileName || name.startsWith(`${fileName}.`));
   });
+}
+
+function safeDecodePath(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return decodeURI(path);
+  }
+}
+
+function stripQueryAndHash(path: string): string {
+  return path
+    .replace(/%(?:3f|23).*/i, '')
+    .split(/[?#]/)[0] ?? '/';
 }
 
 export function normalizePath(raw: string): string {
@@ -75,10 +75,10 @@ export function normalizePath(raw: string): string {
   if (!trimmed) return '/';
   try {
     const url = /^https?:\/\//i.test(trimmed) ? new URL(trimmed) : new URL(trimmed, 'https://placeholder.invalid');
-    const decoded = decodeURI(url.pathname || '/');
+    const decoded = stripQueryAndHash(safeDecodePath(url.pathname || '/'));
     return decoded !== '/' ? decoded.replace(/\/$/g, '') : '/';
   } catch {
-    const [path] = trimmed.split('?');
+    const path = stripQueryAndHash(trimmed);
     const normalized = path.startsWith('/') ? path : `/${path}`;
     return normalized !== '/' ? normalized.replace(/\/$/g, '') : '/';
   }
@@ -99,16 +99,10 @@ export function getSectionAndPageType(raw: string): { section: string; pageType:
   const path = normalizePath(raw).toLowerCase();
   if (path === '/') return { section: 'Главная страница', pageType: 'other' };
   if (isTechnicalPath(path)) return { section: 'Технические', pageType: 'technical' };
-  if (servicePrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return { section: 'Служебные', pageType: 'service' };
   if (pdfExtension.test(path)) return { section: 'PDF', pageType: 'file' };
   if (fileExtensions.test(path)) return { section: 'Файлы', pageType: 'file' };
-  if (path === '/news' || path.startsWith('/news/')) return { section: 'Новости', pageType: 'other' };
-  if (path === '/press-center' || path.startsWith('/press-center/')) return { section: 'СМИ о нас', pageType: 'other' };
-  if (path === '/blog' || path.startsWith('/blog/')) return { section: 'Блог', pageType: 'other' };
-  if (startsWithAny(path, productPrefixes)) return { section: 'Продуктовые', pageType: 'other' };
-  if (startsWithAny(path, solutionPrefixes)) return { section: 'Решения', pageType: 'other' };
-  if (startsWithAny(path, companyPrefixes)) return { section: 'Компания', pageType: 'other' };
-  return { section: 'Другое', pageType: 'other' };
+  const firstSegment = path.split('/').filter(Boolean)[0];
+  return { section: firstSegment ? `/${firstSegment}` : 'Главная страница', pageType: 'other' };
 }
 
 export function titleFromPath(path: string): string {

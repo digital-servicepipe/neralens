@@ -1,4 +1,5 @@
 import { openDB } from 'idb';
+import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 import { parseLogDate } from './logDate';
 import type { LogRow, PersistedState } from '../types/domain';
 
@@ -6,6 +7,7 @@ const dbName = 'ai-analytics-dashboard';
 const storeName = 'state';
 const stateKey = 'snapshot';
 const fallbackKey = `${dbName}:${stateKey}`;
+const compressedFallbackKey = `${fallbackKey}:compressed`;
 
 const emptyState: PersistedState = {
   version: 3,
@@ -46,6 +48,12 @@ function normalizePersistedState(value: Partial<PersistedState> | null | undefin
 
 function loadFallbackState(): PersistedState {
   try {
+    const compressed = localStorage.getItem(compressedFallbackKey);
+    if (compressed) {
+      const restored = decompressFromUTF16(compressed);
+      if (restored) return normalizePersistedState(JSON.parse(restored));
+    }
+
     return normalizePersistedState(JSON.parse(localStorage.getItem(fallbackKey) || 'null'));
   } catch {
     return emptyState;
@@ -54,7 +62,8 @@ function loadFallbackState(): PersistedState {
 
 function saveFallbackState(state: PersistedState): void {
   try {
-    localStorage.setItem(fallbackKey, JSON.stringify(state));
+    localStorage.setItem(compressedFallbackKey, compressToUTF16(JSON.stringify(state)));
+    localStorage.removeItem(fallbackKey);
   } catch {
     // IndexedDB remains the primary store; localStorage is only a best-effort fallback.
   }
@@ -113,6 +122,7 @@ export async function savePersistedState(state: PersistedState): Promise<void> {
 
 export async function clearPersistedState(): Promise<void> {
   localStorage.removeItem(fallbackKey);
+  localStorage.removeItem(compressedFallbackKey);
   try {
     const database = await db();
     await database.delete(storeName, stateKey);

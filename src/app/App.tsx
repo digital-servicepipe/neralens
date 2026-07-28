@@ -43,6 +43,12 @@ function inferSiteDomain(rows: LogRow[]): string {
   return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
 }
 
+function mergeTextFiles(current: TextFilePayload[], incoming: TextFilePayload[]): TextFilePayload[] {
+  const byName = new Map(current.map((file) => [file.name, file]));
+  incoming.forEach((file) => byName.set(file.name, file));
+  return Array.from(byName.values());
+}
+
 export function App() {
   const [isReady, setReady] = useState(false);
   const [rows, setRows] = useState<LogRow[]>([]);
@@ -89,6 +95,11 @@ export function App() {
     writeUrlState(activeScreen, filters);
   }, [activeScreen, filters]);
 
+  useEffect(() => {
+    if (!isReady) return;
+    void savePersistedState({ version: 3, rows, files, sitemapFiles, robotsTxt });
+  }, [files, isReady, robotsTxt, rows, sitemapFiles]);
+
   const deferredFilters = useDeferredValue(filters);
   const analyticsPending = deferredFilters !== filters;
   const analytics = useAnalytics(rows, deferredFilters, robotsTxt, activeScreen);
@@ -121,7 +132,8 @@ export function App() {
     if (!selected.length) return;
     setError('');
     const next = await Promise.all(selected.map(async (file) => ({ name: file.name, content: await file.text() })));
-    await persist({ version: 3, rows, files, sitemapFiles: next, robotsTxt });
+    await persist({ version: 3, rows, files, sitemapFiles: mergeTextFiles(sitemapFiles, next), robotsTxt });
+    setActiveScreen('settings');
   };
 
   const resetAll = async () => {
@@ -150,7 +162,8 @@ export function App() {
     return <LoadingScreen />;
   }
 
-  const content = rows.length ? (
+  const hasProjectData = rows.length > 0 || files.length > 0 || sitemapFiles.length > 0 || robotsTxt.trim().length > 0;
+  const content = hasProjectData ? (
     <DashboardPage
       screen={activeScreen}
       rows={rows}

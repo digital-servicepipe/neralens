@@ -41,6 +41,10 @@ export function SettingsPage({ rows, files, sitemapFiles, onAddLogs, onSitemapUp
       <section className="panel settings-upload-card">
         <CardHead icon={<FileText className="h-5 w-5" />} title="Логи" subtitle="CSV с запросами AI-ботов." />
         <div className="settings-card-body">
+          <div className="settings-card-stats">
+            <InfoBox label="Файлы" value={formatNumber(files.length)} />
+            <InfoBox label="Строки" value={formatNumber(totalRequests)} />
+          </div>
           <div className="settings-file-list">
             {files.length ? files.map((file) => (
               <div className="settings-file-row" key={file.id}>

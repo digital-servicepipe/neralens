@@ -2089,14 +2089,14 @@ body {
 .settings-card-body {
   display: grid;
   min-height: 0;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--ui-space-4);
 }
 
 .settings-file-list {
   display: grid;
-  min-height: 132px;
-  max-height: 204px;
+  min-height: 116px;
+  max-height: none;
   align-content: start;
   gap: var(--ui-space-2);
   overflow-y: auto;
@@ -2138,7 +2138,9 @@ body {
 }
 
 .settings-empty {
+  display: flex;
   min-height: 48px;
+  align-items: center;
   border: 1px dashed rgba(255,255,255,.1);
   border-radius: var(--ui-radius-card);
   padding: var(--ui-space-4);
@@ -2148,6 +2150,7 @@ body {
 .settings-card-action {
   width: max-content;
   align-self: end;
+  justify-self: start;
 }
 
 .settings-danger-card {

@@ -1,10 +1,12 @@
 import type { LogRow, PageType } from '../types/domain';
 
-export const singletonPageSection = 'Страницы';
-export const specialSectionOrder = ['Главная страница', 'Технические', 'PDF', 'Файлы', singletonPageSection] as const;
+export const technicalSection = 'Technical';
+export const pdfSection = 'PDF';
+export const fileSection = 'Files';
+export const specialSectionOrder = ['/', technicalSection, pdfSection, fileSection] as const;
 
-const technicalPrefixes = ['/_', '/wp-', '/wp/', '/bitrix/', '/api/', '/admin', '/robots.txt', '/sitemap', '/xpvnsulc'];
-const technicalExactPaths = ['/graphql', '/server-info', '/server-status'];
+const technicalPrefixes = ['/_', '/wp-', '/wp/', '/bitrix/', '/api/', '/admin', '/debug/pprof', '/robots.txt', '/sitemap', '/ssl/', '/xpvnsulc'];
+const technicalExactPaths = ['/graphql', '/ngsw.json', '/server-info', '/server-status'];
 const technicalSegmentNames = ['.aws', '.cursor', '.git', 'git', 'secrets', 'config'];
 const technicalFileNames = [
   '.bash_history',
@@ -22,13 +24,14 @@ const technicalFileNames = [
   'keyfile',
   'manifest.json',
   'mcp.json',
+  'ngsw.json',
   'package-lock.json',
   'package.json',
   'phpinfo.php',
   'secrets.json',
   'web.config',
 ];
-const technicalExtensions = /\.(?:bak|conf|config|ini|log|map|sql|ya?ml)$/i;
+const technicalExtensions = /\.(?:bak|conf|config|crt|ini|key|log|map|pem|sql|ya?ml)$/i;
 const technicalPhpFileNames = [
   'app_dev.php',
   'captcha_image.php',
@@ -97,12 +100,12 @@ export function normalizePathWithQuery(raw: string): string {
 
 export function getSectionAndPageType(raw: string): { section: string; pageType: PageType } {
   const path = normalizePath(raw).toLowerCase();
-  if (path === '/') return { section: 'Главная страница', pageType: 'other' };
-  if (isTechnicalPath(path)) return { section: 'Технические', pageType: 'technical' };
-  if (pdfExtension.test(path)) return { section: 'PDF', pageType: 'file' };
-  if (fileExtensions.test(path)) return { section: 'Файлы', pageType: 'file' };
+  if (path === '/') return { section: '/', pageType: 'other' };
+  if (isTechnicalPath(path)) return { section: technicalSection, pageType: 'technical' };
+  if (pdfExtension.test(path)) return { section: pdfSection, pageType: 'file' };
+  if (fileExtensions.test(path)) return { section: fileSection, pageType: 'file' };
   const firstSegment = path.split('/').filter(Boolean)[0];
-  return { section: firstSegment ? `/${firstSegment}` : 'Главная страница', pageType: 'other' };
+  return { section: firstSegment ? `/${firstSegment}` : '/', pageType: 'other' };
 }
 
 export function titleFromPath(path: string): string {

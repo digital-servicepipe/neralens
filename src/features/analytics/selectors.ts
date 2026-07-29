@@ -1,7 +1,7 @@
 import { getBotDisplayName } from '../bots/botDictionary';
 import { disallowMatches, parseRobotsTxt, parseSitemapXml } from '../sitemap-board/sitemapParser';
 import { normalizeFilters, type AgentGroup, type FiltersState, type LogRow, type SitemapUrl, type TextFilePayload } from '../../shared/types/domain';
-import { getSectionAndPageType, normalizePath, singletonPageSection, specialSectionOrder } from '../../shared/lib/url';
+import { getSectionAndPageType, normalizePath, specialSectionOrder } from '../../shared/lib/url';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
 
 export interface CountShare {
@@ -40,51 +40,19 @@ export function totalRequestCount(rows: Array<LogRow | AnalyticsRow>) {
   return rows.reduce((sum, row) => sum + requestCountFor(row), 0);
 }
 
-function isUrlSegmentSection(section: string): boolean {
-  return section.startsWith('/');
-}
-
-function hasNestedPath(path: string): boolean {
-  return normalizePath(path).split('/').filter(Boolean).length > 1;
-}
-
-function buildPromotedSections(rows: LogRow[]): Set<string> {
-  const groups = new Map<string, { nestedPaths: Set<string> }>();
-
-  rows.forEach((row) => {
-    const page = getSectionAndPageType(row.path);
-    if (!isUrlSegmentSection(page.section)) return;
-    const item = groups.get(page.section) ?? { nestedPaths: new Set<string>() };
-    if (hasNestedPath(row.path)) item.nestedPaths.add(normalizePath(row.path));
-    groups.set(page.section, item);
-  });
-
-  const promoted = new Set<string>();
-  groups.forEach((item, section) => {
-    if (item.nestedPaths.size >= 3) {
-      promoted.add(section);
-    }
-  });
-  return promoted;
-}
-
 export function refineSections(rows: LogRow[]): AnalyticsRow[] {
-  const promotedSections = buildPromotedSections(rows);
   return rows.map((row) => {
     const path = normalizePath(row.path);
     const page = getSectionAndPageType(path);
-    const section = isUrlSegmentSection(page.section) && !promotedSections.has(page.section)
-      ? singletonPageSection
-      : page.section;
     return {
       ...row,
       path,
-      section,
+      section: page.section,
       pageType: page.pageType,
       botName: getBotDisplayName(row.botType, row.httpUserAgent),
       pathLower: path.toLowerCase(),
     };
-  }).filter((row) => row.pageType !== 'technical');
+  });
 }
 
 function normalizeSectionFilter(section: string): string {
@@ -97,6 +65,9 @@ function normalizeSectionFilter(section: string): string {
     'Компания': '/company',
     'Служебные': '/service',
     'Другое': '/other',
+    'Главная страница': '/',
+    'Технические': 'Technical',
+    'Файлы': 'Files',
   };
   if ((specialSectionOrder as readonly string[]).includes(section)) return section;
   if (legacySections[section]) return legacySections[section];

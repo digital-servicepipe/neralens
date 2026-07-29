@@ -37,7 +37,7 @@ describe('analytics selectors', () => {
     expect(filterRows([row], { agentGroups: ['ai_bot_search_crawler'] })).toHaveLength(1);
   });
 
-  it('keeps URL sections as paths and makes files/technical rows excludable', () => {
+  it('keeps only real URL sections and hides technical/file rows from analytics', () => {
     const rows = refineSections([
       { ...row, path: '/', section: '/' },
       { ...row, path: '/blog/waf-or-bot-protection', section: '/blog' },
@@ -69,6 +69,9 @@ describe('analytics selectors', () => {
       { ...row, path: '/debug/pprof/cmdline', section: '/debug' },
       { ...row, path: '/assets/app.js', section: '/assets' },
       { ...row, path: '/assets/site.css', section: '/assets' },
+      { ...row, path: '/settings.json', section: '/settings.json' },
+      { ...row, path: '/settings.py', section: '/settings.py' },
+      { ...row, path: '/serviceaccountkey.json', section: '/serviceaccountkey.json' },
       { ...row, path: 'https://servicepipe.ru/manifest.json', section: '/manifest.json' },
       { ...row, path: 'https://servicepipe.ru/secrets.json', section: '/secrets.json' },
       { ...row, path: 'https://servicepipe.ru/.aws/credentials', section: '/.aws' },
@@ -92,32 +95,6 @@ describe('analytics selectors', () => {
       '/unknown-page',
       '/search',
       '/pricing',
-      '/xpvnsulc/captcha_image.php',
-      '/app_dev.php',
-      '/app_dev.php/_profiler',
-      '/captcha_image.php',
-      '/config',
-      '/graphql',
-      '/server-info',
-      '/.env',
-      '/.bash_history',
-      '/secrets',
-      '/.git/HEAD',
-      '/config.json',
-      '/static/jsrsasign-all-min.js.map',
-      '/ssl/localhost.key',
-      '/ngsw.json',
-      '/debug/pprof/cmdline',
-      '/assets/app.js',
-      '/assets/site.css',
-      '/manifest.json',
-      '/secrets.json',
-      '/.aws/credentials',
-      '/application.yml',
-      '/keyfile',
-      '/.cursor/mcp.json',
-      '/account.json',
-      '/docs/report.pdf',
     ]);
     expect(rows.map((item) => item.section)).toEqual([
       '/',
@@ -127,82 +104,16 @@ describe('analytics selectors', () => {
       '/docs',
       '/docs',
       '/docs',
-      '/finance',
-      '/about',
-      '/unknown-page',
-      '/search',
-      '/pricing',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Files',
-      'Files',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'PDF',
+      '',
+      '',
+      '',
+      '',
+      '',
     ]);
-    expect(buildFilterOptions(rows).sections).toEqual(['/', 'Technical', 'PDF', 'Files', '/about', '/blog', '/docs', '/finance', '/pricing', '/search', '/unknown-page']);
+    expect(buildFilterOptions(rows).sections).toEqual(['/', '/blog', '/docs']);
     expect(filterRows(rows, { sections: ['/blog'] })).toHaveLength(3);
     expect(filterRows(rows, { sections: ['/docs'] }).map((item) => item.path)).toEqual(['/docs/intro', '/docs/api/auth', '/docs/api/rate-limits']);
-    expect(filterRows(rows, { sections: ['/pricing'] }).map((item) => item.path)).toEqual(['/pricing']);
-    expect(filterRows(rows, { sections: ['PDF'] }).map((item) => item.path)).toEqual(['/docs/report.pdf']);
-    expect(filterRows(rows, { sections: ['Files'] }).map((item) => item.path)).toEqual(['/assets/app.js', '/assets/site.css']);
-    expect(filterRows(rows, { sections: ['Technical'] }).map((item) => item.path)).toEqual([
-      '/xpvnsulc/captcha_image.php',
-      '/app_dev.php',
-      '/app_dev.php/_profiler',
-      '/captcha_image.php',
-      '/config',
-      '/graphql',
-      '/server-info',
-      '/.env',
-      '/.bash_history',
-      '/secrets',
-      '/.git/HEAD',
-      '/config.json',
-      '/static/jsrsasign-all-min.js.map',
-      '/ssl/localhost.key',
-      '/ngsw.json',
-      '/debug/pprof/cmdline',
-      '/manifest.json',
-      '/secrets.json',
-      '/.aws/credentials',
-      '/application.yml',
-      '/keyfile',
-      '/.cursor/mcp.json',
-      '/account.json',
-    ]);
-    expect(filterRows(rows, { excludedSections: ['Technical', 'PDF', 'Files'] }).map((item) => item.path)).toEqual([
-      '/',
-      '/blog/waf-or-bot-protection',
-      '/blog/ai-crawlers',
-      '/blog/llm-bots',
-      '/docs/intro',
-      '/docs/api/auth',
-      '/docs/api/rate-limits',
-      '/finance',
-      '/about',
-      '/unknown-page',
-      '/search',
-      '/pricing',
-    ]);
+    expect(filterRows(rows, { sections: ['/pricing'] })).toHaveLength(0);
+    expect(rows.map((item) => item.path)).not.toEqual(expect.arrayContaining(['/settings.json', '/settings.py', '/serviceaccountkey.json', '/ngsw.json', '/debug/pprof/cmdline', '/docs/report.pdf']));
   });
 });

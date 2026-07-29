@@ -5,7 +5,7 @@ export const pdfSection = 'PDF';
 export const fileSection = 'Files';
 export const specialSectionOrder = ['/', technicalSection, pdfSection, fileSection] as const;
 
-const technicalPrefixes = ['/_', '/wp-', '/wp/', '/bitrix/', '/api/', '/admin', '/debug/pprof', '/robots.txt', '/sitemap', '/ssl/', '/xpvnsulc'];
+const technicalPrefixes = ['/_', '/wp-', '/wp/', '/bitrix/', '/api/', '/admin', '/debug', '/robots.txt', '/sitemap', '/ssl/', '/xpvnsulc'];
 const technicalExactPaths = ['/graphql', '/ngsw.json', '/server-info', '/server-status'];
 const technicalSegmentNames = ['.aws', '.cursor', '.git', 'git', 'secrets', 'config'];
 const technicalFileNames = [
@@ -29,9 +29,11 @@ const technicalFileNames = [
   'package.json',
   'phpinfo.php',
   'secrets.json',
+  'settings.json',
+  'settings.py',
   'web.config',
 ];
-const technicalExtensions = /\.(?:bak|conf|config|crt|ini|key|log|map|pem|sql|ya?ml)$/i;
+const technicalExtensions = /\.(?:bak|conf|config|crt|ini|json|key|log|map|pem|py|sql|ya?ml)$/i;
 const technicalPhpFileNames = [
   'app_dev.php',
   'captcha_image.php',
@@ -53,6 +55,7 @@ function isTechnicalPath(path: string): boolean {
     return name.startsWith('.')
       || name.startsWith('_')
       || technicalSegmentNames.includes(name)
+      || name.includes('serviceaccountkey')
       || name.includes('.env')
       || technicalPhpFileNames.includes(name)
       || technicalFileNames.some((fileName) => name === fileName || name.startsWith(`${fileName}.`));

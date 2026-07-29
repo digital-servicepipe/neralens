@@ -35,7 +35,7 @@ export function PagesTable({
   const summaries = analytics.urlSummaries;
   const shown = summaries.slice(0, limit === 'all' ? summaries.length : limit);
   const total = analytics.kpis.totalRequests || 1;
-  const sectionCount = new Set(analytics.filteredRows.map((row) => row.section)).size;
+  const sectionCount = analytics.filterOptions.sections.length;
   const rowsByPath = useMemo(() => {
     const map = new Map<string, LogRow[]>();
     sourceRows.forEach((row) => {

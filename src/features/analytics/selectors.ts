@@ -40,19 +40,51 @@ export function totalRequestCount(rows: Array<LogRow | AnalyticsRow>) {
   return rows.reduce((sum, row) => sum + requestCountFor(row), 0);
 }
 
+function isVisiblePageType(row: LogRow | AnalyticsRow): boolean {
+  return row.pageType === 'other';
+}
+
+function isUrlSection(section: string): boolean {
+  return section.startsWith('/');
+}
+
+function hasNestedPath(path: string): boolean {
+  return normalizePath(path).split('/').filter(Boolean).length > 1;
+}
+
+function buildPromotedSections(rows: LogRow[]): Set<string> {
+  const groups = new Map<string, Set<string>>();
+
+  rows.forEach((row) => {
+    const page = getSectionAndPageType(row.path);
+    const path = normalizePath(row.path);
+    if (page.pageType !== 'other' || !isUrlSection(page.section) || page.section === '/') return;
+    const paths = groups.get(page.section) ?? new Set<string>();
+    if (hasNestedPath(path)) paths.add(path);
+    groups.set(page.section, paths);
+  });
+
+  const promoted = new Set<string>(['/']);
+  groups.forEach((paths, section) => {
+    if (paths.size >= 3) promoted.add(section);
+  });
+  return promoted;
+}
+
 export function refineSections(rows: LogRow[]): AnalyticsRow[] {
+  const promotedSections = buildPromotedSections(rows);
   return rows.map((row) => {
     const path = normalizePath(row.path);
     const page = getSectionAndPageType(path);
     return {
       ...row,
       path,
-      section: page.section,
+      section: promotedSections.has(page.section) ? page.section : '',
       pageType: page.pageType,
       botName: getBotDisplayName(row.botType, row.httpUserAgent),
       pathLower: path.toLowerCase(),
     };
-  });
+  }).filter(isVisiblePageType);
 }
 
 function normalizeSectionFilter(section: string): string {
@@ -156,7 +188,7 @@ export function buildFilterOptions(rows: Array<LogRow | AnalyticsRow>) {
 
   rows.forEach((row) => {
     const count = requestCountFor(row);
-    sectionSet.add(row.section);
+    if (isVisiblePageType(row) && row.section) sectionSet.add(row.section);
     agentGroups.add(row.agentGroup);
     const botName = botNameFor(row);
     agentDetails.add(botName);
@@ -247,7 +279,7 @@ export function buildTopLists(rows: Array<LogRow | AnalyticsRow>) {
     botGroups.set(row.agentGroup, (botGroups.get(row.agentGroup) ?? 0) + count);
     const botName = botNameFor(row);
     agents.set(botName, (agents.get(botName) ?? 0) + count);
-    sections.set(row.section, (sections.get(row.section) ?? 0) + count);
+    if (row.section) sections.set(row.section, (sections.get(row.section) ?? 0) + count);
     statuses.set(row.requestStatus || 'Неизвестно', (statuses.get(row.requestStatus || 'Неизвестно') ?? 0) + count);
     countries.set(row.country || 'Неизвестно', (countries.get(row.country || 'Неизвестно') ?? 0) + count);
     netnames.set(row.netname || 'Неизвестно', (netnames.get(row.netname || 'Неизвестно') ?? 0) + count);

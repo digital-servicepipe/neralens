@@ -37,7 +37,7 @@ describe('analytics selectors', () => {
     expect(filterRows([row], { agentGroups: ['ai_bot_search_crawler'] })).toHaveLength(1);
   });
 
-  it('keeps only real URL sections and hides technical/file rows from analytics', () => {
+  it('keeps singleton pages out of sections and groups technical/file rows', () => {
     const rows = refineSections([
       { ...row, path: '/', section: '/' },
       { ...row, path: '/blog/waf-or-bot-protection', section: '/blog' },
@@ -95,6 +95,35 @@ describe('analytics selectors', () => {
       '/unknown-page',
       '/search',
       '/pricing',
+      '/xpvnsulc/captcha_image.php',
+      '/app_dev.php',
+      '/app_dev.php/_profiler',
+      '/captcha_image.php',
+      '/config',
+      '/graphql',
+      '/server-info',
+      '/.env',
+      '/.bash_history',
+      '/secrets',
+      '/.git/HEAD',
+      '/config.json',
+      '/static/jsrsasign-all-min.js.map',
+      '/ssl/localhost.key',
+      '/ngsw.json',
+      '/debug/pprof/cmdline',
+      '/assets/app.js',
+      '/assets/site.css',
+      '/settings.json',
+      '/settings.py',
+      '/serviceaccountkey.json',
+      '/manifest.json',
+      '/secrets.json',
+      '/.aws/credentials',
+      '/application.yml',
+      '/keyfile',
+      '/.cursor/mcp.json',
+      '/account.json',
+      '/docs/report.pdf',
     ]);
     expect(rows.map((item) => item.section)).toEqual([
       '/',
@@ -109,11 +138,83 @@ describe('analytics selectors', () => {
       '',
       '',
       '',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Files',
+      'Files',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'Technical',
+      'PDF',
     ]);
-    expect(buildFilterOptions(rows).sections).toEqual(['/', '/blog', '/docs']);
+    expect(buildFilterOptions(rows).sections).toEqual(['/', 'Technical', 'PDF', 'Files', '/blog', '/docs']);
     expect(filterRows(rows, { sections: ['/blog'] })).toHaveLength(3);
     expect(filterRows(rows, { sections: ['/docs'] }).map((item) => item.path)).toEqual(['/docs/intro', '/docs/api/auth', '/docs/api/rate-limits']);
     expect(filterRows(rows, { sections: ['/pricing'] })).toHaveLength(0);
-    expect(rows.map((item) => item.path)).not.toEqual(expect.arrayContaining(['/settings.json', '/settings.py', '/serviceaccountkey.json', '/ngsw.json', '/debug/pprof/cmdline', '/docs/report.pdf']));
+    expect(filterRows(rows, { sections: ['Technical'] }).map((item) => item.path)).toEqual([
+      '/xpvnsulc/captcha_image.php',
+      '/app_dev.php',
+      '/app_dev.php/_profiler',
+      '/captcha_image.php',
+      '/config',
+      '/graphql',
+      '/server-info',
+      '/.env',
+      '/.bash_history',
+      '/secrets',
+      '/.git/HEAD',
+      '/config.json',
+      '/static/jsrsasign-all-min.js.map',
+      '/ssl/localhost.key',
+      '/ngsw.json',
+      '/debug/pprof/cmdline',
+      '/settings.json',
+      '/settings.py',
+      '/serviceaccountkey.json',
+      '/manifest.json',
+      '/secrets.json',
+      '/.aws/credentials',
+      '/application.yml',
+      '/keyfile',
+      '/.cursor/mcp.json',
+      '/account.json',
+    ]);
+    expect(filterRows(rows, { sections: ['Files'] }).map((item) => item.path)).toEqual(['/assets/app.js', '/assets/site.css']);
+    expect(filterRows(rows, { sections: ['PDF'] }).map((item) => item.path)).toEqual(['/docs/report.pdf']);
+    expect(filterRows(rows, { excludedSections: ['Technical', 'PDF', 'Files'] }).map((item) => item.path)).toEqual([
+      '/',
+      '/blog/waf-or-bot-protection',
+      '/blog/ai-crawlers',
+      '/blog/llm-bots',
+      '/docs/intro',
+      '/docs/api/auth',
+      '/docs/api/rate-limits',
+      '/finance',
+      '/about',
+      '/unknown-page',
+      '/search',
+      '/pricing',
+    ]);
   });
 });

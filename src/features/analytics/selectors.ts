@@ -40,10 +40,6 @@ export function totalRequestCount(rows: Array<LogRow | AnalyticsRow>) {
   return rows.reduce((sum, row) => sum + requestCountFor(row), 0);
 }
 
-function isVisiblePageType(row: LogRow | AnalyticsRow): boolean {
-  return row.pageType === 'other';
-}
-
 function isUrlSection(section: string): boolean {
   return section.startsWith('/');
 }
@@ -76,15 +72,18 @@ export function refineSections(rows: LogRow[]): AnalyticsRow[] {
   return rows.map((row) => {
     const path = normalizePath(row.path);
     const page = getSectionAndPageType(path);
+    const section = page.pageType === 'other'
+      ? (promotedSections.has(page.section) ? page.section : '')
+      : page.section;
     return {
       ...row,
       path,
-      section: promotedSections.has(page.section) ? page.section : '',
+      section,
       pageType: page.pageType,
       botName: getBotDisplayName(row.botType, row.httpUserAgent),
       pathLower: path.toLowerCase(),
     };
-  }).filter(isVisiblePageType);
+  });
 }
 
 function normalizeSectionFilter(section: string): string {
@@ -188,7 +187,7 @@ export function buildFilterOptions(rows: Array<LogRow | AnalyticsRow>) {
 
   rows.forEach((row) => {
     const count = requestCountFor(row);
-    if (isVisiblePageType(row) && row.section) sectionSet.add(row.section);
+    if (row.section) sectionSet.add(row.section);
     agentGroups.add(row.agentGroup);
     const botName = botNameFor(row);
     agentDetails.add(botName);

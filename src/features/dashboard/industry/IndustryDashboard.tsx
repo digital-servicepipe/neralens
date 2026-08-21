@@ -6,7 +6,7 @@ import { Panel } from '../../../shared/ui/Panel';
 import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
 import type { IndustryRow } from '../../../shared/types/domain';
 import { buildIndustryDailySeries, buildIndustrySummaries, totalIndustryTraffic, weightedAverage, type IndustrySummary } from '../../analytics/industrySelectors';
-import { industryThreatColors, industryThreatLabels, industryThreatMetricKeys, industryThreatSeries, type IndustryThreatMetricKey } from './industryThreats';
+import { industryAttackMetricKeys, industryAttackSeries, industryThreatColors, industryThreatLabels, type IndustryThreatMetricKey } from './industryThreats';
 
 const axis = { fill: 'var(--fk-muted)', fontSize: 12 };
 const grid = 'rgba(255,255,255,.08)';
@@ -164,8 +164,12 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
   const totalTraffic = useMemo(() => totalIndustryTraffic(filteredRows), [filteredRows]);
   const activeDates = new Set(filteredRows.map((row) => row.date).filter((date) => date !== 'Unknown')).size;
   const filterOptions = useMemo(() => buildIndustryFilterOptions(rows), [rows]);
-  const selectedThreatKeys = useMemo(() => (filters.threats.length ? filters.threats : [...industryThreatMetricKeys]), [filters.threats]);
-  const selectedAttackSeries = useMemo(() => industryThreatSeries.filter(([key]) => selectedThreatKeys.includes(key)), [selectedThreatKeys]);
+  const selectedThreatKeys = useMemo(() => {
+    const attackKeySet = new Set<IndustryThreatMetricKey>(industryAttackMetricKeys);
+    const selected = filters.threats.filter((key) => attackKeySet.has(key));
+    return selected.length ? selected : [...industryAttackMetricKeys];
+  }, [filters.threats]);
+  const selectedAttackSeries = useMemo(() => industryAttackSeries.filter(([key]) => selectedThreatKeys.includes(key)), [selectedThreatKeys]);
   const botComplexity = useMemo(() => buildMetricBars(filteredRows, [
     ['strongBotsPercent', industryShortLabels.strongBotsPercent ?? industryFieldLabels.strongBotsPercent],
     ['botsPercent', industryShortLabels.botsPercent ?? industryFieldLabels.botsPercent],
@@ -223,7 +227,7 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
       </section>
 
       <section className="industry-main-grid grid gap-3">
-        <Panel title="Динамика угроз по дням" subtitle="График с динамикой по угрозам и доля по каждой угрозе. Доля считается от общего трафика за день*" bodyClassName="height-chart">
+        <Panel title="Динамика угроз по дням" subtitle="График с динамикой по угрозам и доля по каждой угрозе. Доля считается от общего трафика за день" bodyClassName="height-chart">
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={daily} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
               <defs>
@@ -248,10 +252,10 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
       </section>
 
       <section className="industry-detail-grid grid gap-3">
-        <IndustryBar title="Сложность ботов" subtitle="Доля обычных и продвинутых ботов среди всего бот-трафика." data={botComplexity} height={190} ticks={botComplexityTicks} tooltipBasis="botTrafficShare" />
-        <IndustryBar title="Устройства ботов" subtitle="Доля десктопных, мобильных и неизвестных устройств среди всего бот-трафика." data={botDevices} height={220} ticks={botDeviceTicks} tooltipBasis="botTrafficShare" />
-        <IndustryBar title="Типы атак" subtitle="Какие угрозы дают наибольшую долю в all_trafic за выбранный период." data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="totalTraffic" />
-        <DonutPanel title="География и инфраструктура" subtitle="Источник трафика: Россия, зарубежный сегмент и дата-центры." data={geoInfraMetrics} />
+        <IndustryBar title="Бот-трафик по категориям" subtitle="Доля обычных и продвинутых ботов от всего бот-трафика" data={botComplexity} height={190} ticks={botComplexityTicks} tooltipBasis="botTrafficShare" />
+        <IndustryBar title="Бот-трафик по устройствам" subtitle="Доля десктопных, мобильных и неизвестных устройств от всего бот-трафика" data={botDevices} height={220} ticks={botDeviceTicks} tooltipBasis="botTrafficShare" />
+        <IndustryBar title="Типы угроз" subtitle="Доли по угрозам от общего трафика за выбранный период" data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="totalTraffic" />
+        <DonutPanel title="География трафика" subtitle="Доли по географии от общего трафика за выбранный период" data={geoInfraMetrics} />
         <IndustryTable summaries={summaries} />
       </section>
     </div>
@@ -521,7 +525,7 @@ export function IndustryFilters({
       {popover === 'threats' && (
         <ListPopover className="with-footer" style={popoverStyle}>
           <div className="popover-scroll compact">
-            {industryThreatSeries.map(([key, label, color]) => (
+            {industryAttackSeries.map(([key, label, color]) => (
               <CheckRow
                 key={key}
                 label={label}
@@ -532,7 +536,7 @@ export function IndustryFilters({
             ))}
           </div>
           <div className="popover-meta popover-footer">
-            <span>{filters.threats.length ? `${filters.threats.length} из ${industryThreatSeries.length}` : 'Показаны все угрозы'}</span>
+            <span>{filters.threats.length ? `${filters.threats.length} из ${industryAttackSeries.length}` : 'Показаны все угрозы'}</span>
             <button onClick={() => onChange((current) => ({ ...current, threats: [] }))}>Все угрозы</button>
           </div>
         </ListPopover>
@@ -707,7 +711,7 @@ function ThreatTrafficBar({ data }: { data: ThreatTrafficDatum[] }) {
   };
 
   return (
-    <Panel title="Вредоносные боты внутри общего трафика по отраслям" subtitle="Отрасли отсортированы по общему трафику. Вся полоса — общий объём трафика; оранжевым — доля вредоносных ботов от общего объёма трафика">
+    <Panel title="Вредоносные боты от общего трафика по отраслям" subtitle="Доля вредоносных ботов по отраслям">
       <div className={`industry-traffic-bars ${data.length > 10 ? 'scrollable' : ''} ${data.length <= 3 ? 'compact' : ''}`}>
         {data.map((item) => {
           const totalWidth = `${Math.max(1.2, (item.totalTraffic / maxTraffic) * 100)}%`;

@@ -19,6 +19,15 @@ export const industryThreatMetricKeys = [
   'smsPushBomberPercent',
 ] as const satisfies readonly IndustryThreatMetricKey[];
 
+export const industryAttackMetricKeys = [
+  'apiPercent',
+  'parsersPercent',
+  'credsPercent',
+  'scanerPercent',
+  'paymentsCrackPercent',
+  'smsPushBomberPercent',
+] as const satisfies readonly IndustryThreatMetricKey[];
+
 export const industryThreatLabels: Record<IndustryThreatMetricKey, string> = {
   badBotsPercent: 'Вредоносные боты',
   apiPercent: 'API-атаки',
@@ -40,6 +49,12 @@ export const industryThreatColors: Record<IndustryThreatMetricKey, string> = {
 };
 
 export const industryThreatSeries = industryThreatMetricKeys.map((key) => [
+  key,
+  industryThreatLabels[key],
+  industryThreatColors[key],
+] as const);
+
+export const industryAttackSeries = industryAttackMetricKeys.map((key) => [
   key,
   industryThreatLabels[key],
   industryThreatColors[key],

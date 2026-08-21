@@ -1,221 +1,292 @@
 import { useMemo, useState } from 'react';
-import { Background, Controls, Handle, MarkerType, MiniMap, Position, ReactFlow, type Edge, type Node, type NodeProps } from '@xyflow/react';
-import { Check, Copy, ExternalLink, Filter, FolderTree } from 'lucide-react';
-import { absoluteUrlForPath } from '../../shared/lib/url';
+import { ChevronDown, Home, Search } from 'lucide-react';
+import { absoluteUrlForPath, getServicepipeSection, normalizePath, servicepipeSectionLabels } from '../../shared/lib/url';
 import { formatNumber, truncateMiddle } from '../../shared/lib/format';
-import { Panel } from '../../shared/ui/Panel';
-import { buildUrlSummaries, parseAllSitemapFiles } from '../analytics/selectors';
-import { disallowMatches, parseRobotsTxt } from './sitemapParser';
-import type { FiltersState, LogRow, SitemapUrl, TextFilePayload } from '../../shared/types/domain';
+import { displayTitleForPath, type PageTitleCatalog } from '../../shared/lib/pageTitles';
+import { servicepipeSitemapEntries } from '../../shared/data/servicepipeSitemap';
+import { buildUrlSummaries } from '../analytics/selectors';
+import type { LogRow } from '../../shared/types/domain';
 
-type Status = 'hot' | 'warm' | 'cold' | 'empty' | 'blocked';
+type TreeMode = 'weak' | 'empty' | 'active' | 'all';
+type PageStatus = 'empty' | 'low' | 'active';
 
-interface GroupData extends Record<string, unknown> {
-  label: string;
-  fileName: string;
-  totalRequests: number;
-  urlCount: number;
-  activeCount: number;
-  expanded: boolean;
-  onToggle: (key: string) => void;
-  groupKey: string;
-}
-
-interface PathData extends Record<string, unknown> {
-  title: string;
+interface SitemapPage {
   path: string;
-  fullUrl: string;
+  title: string;
+  url: string;
   total: number;
-  status: Status;
-  botLabels: string[];
-  onPathSelect: (path: string) => void;
+  lastmod: string;
+  status: PageStatus;
 }
 
-function statusOf(total: number, blocked: boolean, warm: number, hot: number): Status {
-  if (blocked) return 'blocked';
-  if (total <= 0) return 'empty';
-  if (total >= hot) return 'hot';
-  if (total >= warm) return 'warm';
-  return 'cold';
+interface SitemapSection {
+  name: string;
+  pages: SitemapPage[];
+  total: number;
+  visibleTotal: number;
+  allCount: number;
+  active: number;
+  empty: number;
+  low: number;
+  status: PageStatus;
 }
 
-function quantile(values: number[], percent: number): number {
-  if (!values.length) return 0;
-  return values[Math.min(values.length - 1, Math.floor(values.length * percent))] ?? 0;
-}
+const sectionOrder = [
+  servicepipeSectionLabels.blog,
+  servicepipeSectionLabels.pressCenter,
+  servicepipeSectionLabels.news,
+  servicepipeSectionLabels.products,
+  servicepipeSectionLabels.industries,
+  servicepipeSectionLabels.company,
+  servicepipeSectionLabels.partners,
+  servicepipeSectionLabels.misc,
+];
 
-function GroupNode({ data }: NodeProps<Node<GroupData>>) {
-  return (
-    <div className="fk-map-node fk-map-group">
-      <Handle type="source" position={Position.Right} />
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold text-ink">{data.label}</p>
-          <p className="mt-1 truncate text-xs font-bold uppercase text-muted">{data.fileName}</p>
-          <p className="mt-1 text-xs text-muted">{formatNumber(data.urlCount)} URL, {formatNumber(data.totalRequests)} запросов</p>
-        </div>
-        <button className="badge" type="button" onClick={() => data.onToggle(data.groupKey)}>{data.expanded ? 'Скрыть' : `Показать ${data.urlCount}`}</button>
-      </div>
-      <div className="mt-4 grid gap-2" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        <div className="bg-surface p-3"><p className="text-xs font-bold uppercase text-muted">URL</p><p className="text-lg font-extrabold text-ink">{formatNumber(data.urlCount)}</p></div>
-        <div className="bg-surface p-3"><p className="text-xs font-bold uppercase text-muted">Активные</p><p className="text-lg font-extrabold text-ink">{formatNumber(data.activeCount)}</p></div>
-      </div>
-    </div>
-  );
-}
-
-function PathNode({ data }: NodeProps<Node<PathData>>) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    await navigator.clipboard.writeText(data.fullUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  };
-  return (
-    <div className={`fk-map-node fk-map-path fk-map-path--${data.status}`}>
-      <Handle type="target" position={Position.Left} />
-      <div>
-        <a className="path-link text-sm font-extrabold text-ink" href={data.fullUrl} target="_blank" rel="noreferrer" title={data.fullUrl}>{truncateMiddle(data.title, 34)}</a>
-        <p className="mt-1 text-xs text-muted break-words">{truncateMiddle(data.path, 48)}</p>
-        <div className="mt-2 flex gap-1" style={{ flexWrap: 'wrap' }}>
-          {data.botLabels.slice(0, 1).map((bot) => <span className="badge" key={bot}>{truncateMiddle(bot, 18)}</span>)}
-          {data.botLabels.length > 1 && <span className="badge">+{data.botLabels.length - 1}</span>}
-          {!data.botLabels.length && <span className="badge">Нет запросов</span>}
-        </div>
-      </div>
-      <div className="fk-map-path-actions">
-        <button className="fk-map-path-action" type="button" title="Скопировать URL" onClick={() => void copy()}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button>
-        <a className="fk-map-path-action" href={data.fullUrl} target="_blank" rel="noreferrer" title="Открыть URL"><ExternalLink className="h-4 w-4" /></a>
-        <button className="fk-map-path-action" type="button" title="Поставить путь в фильтр" onClick={() => data.onPathSelect(data.path)}><Filter className="h-4 w-4" /></button>
-      </div>
-      <span className="badge" style={{ position: 'absolute', right: 12, top: 12 }}>{formatNumber(data.total)}</span>
-    </div>
-  );
-}
-
-const nodeTypes = { group: GroupNode, path: PathNode };
+const modeLabels: Record<TreeMode, string> = {
+  weak: 'Слабые',
+  empty: 'Без запросов',
+  active: 'С запросами',
+  all: 'Все',
+};
+const rootSectionName = 'Главная';
 
 export function SiteMapBoard({
   rows,
-  sitemapFiles,
-  robotsTxt,
+  robotsTxt: _robotsTxt,
   siteDomain,
-  servicepipeLogs,
-  onPathSelect,
+  onPathSelect: _onPathSelect,
+  pageTitleCatalog,
 }: {
   rows: LogRow[];
-  filters: FiltersState;
-  sitemapFiles: TextFilePayload[];
   robotsTxt: string;
   siteDomain: string;
-  servicepipeLogs: boolean;
   onPathSelect: (path: string) => void;
+  pageTitleCatalog: PageTitleCatalog;
 }) {
-  const [expanded, setExpanded] = useState<string[]>([]);
-  const sitemapUrls = useMemo(() => parseAllSitemapFiles(sitemapFiles, servicepipeLogs), [servicepipeLogs, sitemapFiles]);
-  const summaries = useMemo(() => buildUrlSummaries(rows, robotsTxt), [rows, robotsTxt]);
-  const robots = useMemo(() => parseRobotsTxt(robotsTxt), [robotsTxt]);
-  const sitemapByPath = useMemo(() => new Map(sitemapUrls.map((url) => [url.path, url])), [sitemapUrls]);
-  const totals = summaries.map((item) => item.total).filter((value) => value > 0).sort((a, b) => a - b);
-  const warm = quantile(totals, 0.35);
-  const hot = quantile(totals, 0.75);
-
-  const grouped = useMemo(() => {
-    const groupMap = new Map<string, SitemapUrl[]>();
-    sitemapUrls.forEach((url) => {
-      const list = groupMap.get(url.group) ?? [];
-      list.push(url);
-      groupMap.set(url.group, list);
+  const [mode, setMode] = useState<TreeMode>('all');
+  const [query, setQuery] = useState('');
+  const [selectedSection, setSelectedSection] = useState<string>(servicepipeSectionLabels.pressCenter);
+  const summaries = useMemo(() => buildUrlSummaries(rows, ''), [rows]);
+  const summaryByPath = useMemo(() => new Map(summaries.map((item) => [normalizePath(item.path), item])), [summaries]);
+  const pages = useMemo(() => {
+    const rawPages = servicepipeSitemapEntries.map((entry): SitemapPage => {
+      const path = normalizePath(entry.path);
+      const total = summaryByPath.get(path)?.total ?? 0;
+      const status: PageStatus = total <= 0 ? 'empty' : 'active';
+      return {
+        path,
+        title: displayTitleForPath(path, pageTitleCatalog),
+        url: entry.url,
+        total,
+        lastmod: entry.lastmod,
+        status,
+      };
     });
-    return Array.from(groupMap.entries());
-  }, [sitemapUrls]);
+    return markRelativeWeakPages(rawPages);
+  }, [pageTitleCatalog, summaryByPath]);
+  const rootPage = useMemo(() => pages.find((page) => page.path === '/') ?? null, [pages]);
 
-  const graph = useMemo(() => {
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
-    let y = 0;
-    grouped.forEach(([fileName, urls], fileIndex) => {
-      const key = `sitemap:${fileName}:${fileIndex}`;
-      const groupSummaries = urls.map((url) => summaries.find((summary) => summary.path === url.path)).filter(Boolean);
-      const totalRequests = groupSummaries.reduce((sum, item) => sum + (item?.total ?? 0), 0);
-      const isExpanded = expanded.includes(key);
-      nodes.push({
-        id: `group:${key}`,
-        type: 'group',
-        position: { x: 0, y },
-        draggable: false,
-        data: {
-          groupKey: key,
-          label: fileName,
-          fileName,
-          totalRequests,
-          urlCount: urls.length,
-          activeCount: groupSummaries.filter((summary) => (summary?.total ?? 0) > 0).length,
-          expanded: isExpanded,
-          onToggle: (nextKey: string) => setExpanded((current) => current.includes(nextKey) ? current.filter((item) => item !== nextKey) : [...current, nextKey]),
-        } satisfies GroupData,
-        style: { width: 320, height: 176 },
-      });
-      if (isExpanded) {
-        urls
-          .map((url) => ({ url, summary: summaries.find((summary) => summary.path === url.path) }))
-          .sort((a, b) => (b.summary?.total ?? 0) - (a.summary?.total ?? 0))
-          .slice(0, 240)
-          .forEach(({ url, summary }, index) => {
-            const column = index % 3;
-            const row = Math.floor(index / 3);
-            const blocked = summary ? summary.disallowedBy.length > 0 : disallowMatches({ path: url.path, botType: '*', httpUserAgent: '*' }, robots).length > 0;
-            const status = statusOf(summary?.total ?? 0, blocked, warm, hot);
-            const id = `path:${key}:${url.path}`;
-            nodes.push({
-              id,
-              type: 'path',
-              position: { x: 412 + column * 392, y: y + row * 172 },
-              draggable: false,
-              data: {
-                title: url.title,
-                path: url.path,
-                fullUrl: absoluteUrlForPath(url.path, rows, siteDomain),
-                total: summary?.total ?? 0,
-                status,
-                botLabels: Object.keys(summary?.bots ?? {}),
-                onPathSelect,
-              } satisfies PathData,
-              style: { width: 360, height: 150 },
-            });
-            edges.push({ id: `edge:${key}:${url.path}`, source: `group:${key}`, target: id, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed }, style: { stroke: 'rgba(141,160,158,.36)', strokeWidth: 1.2 } });
-          });
-      }
-      y += Math.max(248, Math.ceil((isExpanded ? urls.length : 1) / 3) * 172 + 72);
+  const sections = useMemo(() => {
+    const search = query.trim().toLowerCase();
+    const allPagesBySection = new Map<string, SitemapPage[]>();
+    const visiblePagesBySection = new Map<string, SitemapPage[]>();
+    pages.forEach((page) => {
+      if (page.path === '/') return;
+      const section = getServicepipeSection(page.path) ?? servicepipeSectionLabels.misc;
+      const allList = allPagesBySection.get(section) ?? [];
+      allList.push(page);
+      allPagesBySection.set(section, allList);
+      if (search && !`${page.title} ${page.path}`.toLowerCase().includes(search)) return;
+      const visibleList = visiblePagesBySection.get(section) ?? [];
+      visibleList.push(page);
+      visiblePagesBySection.set(section, visibleList);
     });
-    return { nodes, edges };
-  }, [expanded, grouped, hot, onPathSelect, robots, rows, siteDomain, summaries, warm]);
 
-  const visibleSitemapPaths = sitemapUrls.filter((url) => sitemapByPath.has(url.path));
-  const activeCount = visibleSitemapPaths.filter((url) => summaries.some((summary) => summary.path === url.path && summary.total > 0)).length;
+    return sectionOrder
+      .map((name): SitemapSection => {
+        const allSectionPages = allPagesBySection.get(name) ?? [];
+        const visibleSectionPages = filterSectionPages(visiblePagesBySection.get(name) ?? [], mode).sort(sortPages);
+        const total = allSectionPages.reduce((sum, page) => sum + page.total, 0);
+        const visibleTotal = visibleSectionPages.reduce((sum, page) => sum + page.total, 0);
+        const active = allSectionPages.filter((page) => page.total > 0).length;
+        const empty = allSectionPages.filter((page) => page.status === 'empty').length;
+        const low = allSectionPages.filter((page) => page.status === 'low').length;
+        return {
+          name,
+          pages: visibleSectionPages,
+          total,
+          visibleTotal,
+          allCount: allSectionPages.length,
+          active,
+          empty,
+          low,
+          status: active === 0 ? 'empty' : empty + low > 0 ? 'low' : 'active',
+        };
+      })
+      .filter((section) => (allPagesBySection.get(section.name) ?? []).length > 0);
+  }, [mode, pages, query]);
+
+  const stats = useMemo(() => ({
+    total: pages.length,
+    active: pages.filter((page) => page.total > 0).length,
+    weak: pages.filter((page) => page.status !== 'active').length,
+  }), [pages]);
+
+  const selectMode = (nextMode: TreeMode) => {
+    setMode(nextMode);
+  };
+  const activeSection = sections.find((section) => section.name === selectedSection) ?? sections[0] ?? null;
+  const visibleRootPage = rootPage && filterSectionPages([rootPage], mode).some((page) => page.path === rootPage.path)
+    && (!query.trim() || `${rootPage.title} ${rootPage.path}`.toLowerCase().includes(query.trim().toLowerCase()))
+    ? rootPage
+    : null;
+  const detailSection = selectedSection === rootSectionName
+    ? {
+      name: rootSectionName,
+      pages: visibleRootPage ? [visibleRootPage] : [],
+      total: rootPage?.total ?? 0,
+      visibleTotal: visibleRootPage?.total ?? 0,
+      allCount: rootPage ? 1 : 0,
+      active: rootPage && rootPage.total > 0 ? 1 : 0,
+      empty: rootPage && rootPage.status === 'empty' ? 1 : 0,
+      low: rootPage && rootPage.status === 'low' ? 1 : 0,
+      status: rootPage?.status ?? 'empty',
+    } satisfies SitemapSection
+    : activeSection;
 
   return (
-    <Panel title="Карта сайта" subtitle="Sitemap-группы слева, URL-узлы справа. Цвет показывает поток запросов и robots-блокировки." action={<FolderTree className="h-4 w-4 text-aqua" />}>
-      <div className="mb-3 flex gap-2" style={{ flexWrap: 'wrap' }}>
-        <button className="badge" type="button" onClick={() => setExpanded(grouped.map(([name], index) => `sitemap:${name}:${index}`))}>Раскрыть всё</button>
-        <button className="badge" type="button" onClick={() => setExpanded([])}>Свернуть всё</button>
-        <span className="badge">URL в карте: {formatNumber(sitemapUrls.length)}</span>
-        <span className="badge">С запросами: {formatNumber(activeCount)}</span>
+    <article className="panel sitemap-tree-panel">
+      <div className="section-heading sitemap-tree-head">
+        <div>
+          <h2>Карта сайта Servicepipe</h2>
+          <p>Все страницы из sitemap разложены по разделам SP. Слабые страницы считаются относительно своего раздела: внизу списка остаются URL с минимальной активностью и без запросов.</p>
+        </div>
+        <div className="sitemap-tree-stats" aria-label="Сводка по карте сайта">
+          <Stat label="URL в sitemap" value={stats.total} />
+          <Stat label="С запросами" value={stats.active} />
+          <Stat label="Слабые" value={stats.weak} />
+        </div>
       </div>
-      <div className="fk-map-canvas">
-        {graph.nodes.length ? (
-          <ReactFlow nodes={graph.nodes} edges={graph.edges} nodeTypes={nodeTypes} fitView nodesDraggable={false} panOnScroll zoomOnScroll minZoom={0.35} maxZoom={1.6} proOptions={{ hideAttribution: true }}>
-            <Background color="rgba(141,160,158,.24)" gap={20} size={1} />
-            <MiniMap pannable zoomable position="top-right" nodeBorderRadius={6} className="fk-map-minimap" />
-            <Controls showInteractive={false} />
-          </ReactFlow>
-        ) : (
-          <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted">Карта сайта пока не загружена. Добавьте sitemap XML, а JSON используйте для названий страниц.</div>
+
+      <div className="sitemap-tree-controls">
+        <div className="popover-search sitemap-tree-search">
+          <Search className="h-4 w-4" />
+          <input value={query} placeholder="Найти страницу" onChange={(event) => setQuery(event.target.value)} />
+        </div>
+        <div className="sitemap-tree-tabs" aria-label="Фильтр страниц карты сайта">
+          {(Object.keys(modeLabels) as TreeMode[]).map((key) => (
+            <button key={key} className={mode === key ? 'active' : ''} type="button" onClick={() => selectMode(key)}>
+              {modeLabels[key]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="sitemap-workbench">
+        <div className="sitemap-visual-tree">
+          <button className={`sitemap-root-node ${selectedSection === rootSectionName ? 'selected' : ''}`} type="button" aria-pressed={selectedSection === rootSectionName} onClick={() => setSelectedSection(rootSectionName)}>
+            <span><Home className="h-4 w-4" /></span>
+            <strong>servicepipe.ru</strong>
+            <small>{formatNumber(stats.total)} URL в карте</small>
+          </button>
+          <div className="sitemap-branch-grid">
+            {sections.length ? sections.map((section) => (
+              <section className={`sitemap-branch ${section.pages.length ? '' : 'no-visible-pages'} ${detailSection?.name === section.name ? 'selected' : ''}`} key={section.name}>
+                <button className="sitemap-branch-card" type="button" aria-pressed={detailSection?.name === section.name} onClick={() => setSelectedSection(section.name)}>
+                  <span className="sitemap-branch-dot" aria-hidden="true" />
+                  <strong>{section.name}</strong>
+                  <span>{formatVisibleCount(section.pages.length, section.allCount, mode, query)}</span>
+                  <em>{formatNumber(mode === 'all' && !query ? section.total : section.visibleTotal)} запросов</em>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </section>
+            )) : (
+              <div className="sitemap-tree-empty">По текущим фильтрам страниц не найдено.</div>
+            )}
+          </div>
+        </div>
+
+        {detailSection && (
+          <section className="sitemap-section-detail">
+            <div className="sitemap-section-detail-head">
+              <div>
+                <h3>{detailSection.name}</h3>
+                <p>{formatVisibleCount(detailSection.pages.length, detailSection.allCount, mode, query)} · {formatNumber(detailSection.visibleTotal)} запросов в выбранном списке</p>
+              </div>
+              <span>{modeLabels[mode]}</span>
+            </div>
+            <div className="sitemap-page-tree">
+              {detailSection.pages.length ? detailSection.pages.map((page) => (
+                <div className={`sitemap-tree-page sitemap-status-${page.status}`} key={page.path}>
+                  <span className="sitemap-page-status" aria-hidden="true" />
+                  <div className="sitemap-page-copy">
+                    <a href={absoluteUrlForPath(page.path, rows, siteDomain || 'servicepipe.ru')} target="_blank" rel="noreferrer" title={page.url}>{page.title}</a>
+                    <span>{truncateMiddle(page.path, 128)}</span>
+                  </div>
+                  <div className="sitemap-page-meta">
+                    <strong>{formatNumber(page.total)}</strong>
+                    <span>{page.total > 0 ? 'запросов' : 'нет запросов'}</span>
+                  </div>
+                </div>
+              )) : <div className="sitemap-tree-empty inline">В этом разделе нет страниц под выбранный фильтр.</div>}
+            </div>
+          </section>
         )}
       </div>
-      <div className="mt-3 flex gap-3 text-xs text-muted" style={{ flexWrap: 'wrap' }}>
-        {(['hot', 'warm', 'cold', 'empty', 'blocked'] as Status[]).map((status) => <span key={status} className="badge"><span className="dot" style={{ background: status === 'blocked' ? 'var(--fk-danger)' : status === 'empty' ? '#65706f' : status === 'cold' ? '#7f9997' : status === 'warm' ? 'var(--fk-accent-soft)' : 'var(--fk-accent)' }} />{status}</span>)}
-      </div>
-    </Panel>
+    </article>
   );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <span>
+      <small>{label}</small>
+      <strong>{formatNumber(value)}</strong>
+    </span>
+  );
+}
+
+function sortPages(first: SitemapPage, second: SitemapPage) {
+  if (first.total !== second.total) return second.total - first.total;
+  if (first.status !== second.status) return statusRank(first.status) - statusRank(second.status);
+  return first.path.localeCompare(second.path, 'ru');
+}
+
+function markRelativeWeakPages(pages: SitemapPage[]) {
+  const bySection = new Map<string, SitemapPage[]>();
+  pages.forEach((page) => {
+    const section = getServicepipeSection(page.path) ?? servicepipeSectionLabels.misc;
+    bySection.set(section, [...(bySection.get(section) ?? []), page]);
+  });
+
+  const weakPaths = new Set<string>();
+  bySection.forEach((sectionPages) => {
+    const sorted = sectionPages.slice().sort((a, b) => a.total - b.total || a.path.localeCompare(b.path, 'ru'));
+    const weakCount = Math.max(1, Math.ceil(sorted.length * 0.33));
+    sorted.slice(0, weakCount).forEach((page) => weakPaths.add(page.path));
+  });
+
+  return pages.map((page) => {
+    if (page.total <= 0) return page;
+    const status: PageStatus = weakPaths.has(page.path) ? 'low' : 'active';
+    return { ...page, status };
+  });
+}
+
+function filterSectionPages(pages: SitemapPage[], mode: TreeMode) {
+  if (mode === 'all') return pages;
+  if (mode === 'empty') return pages.filter((page) => page.status === 'empty');
+  if (mode === 'active') return pages.filter((page) => page.total > 0);
+  return pages.filter((page) => page.status !== 'active');
+}
+
+function formatVisibleCount(visible: number, total: number, mode: TreeMode, query: string) {
+  if (mode === 'all' && !query.trim()) return `${formatNumber(total)} URL`;
+  return `${formatNumber(visible)} из ${formatNumber(total)} URL`;
+}
+
+function statusRank(status: PageStatus) {
+  if (status === 'empty') return 0;
+  if (status === 'low') return 1;
+  return 2;
 }

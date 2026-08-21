@@ -1,5 +1,6 @@
 import { openDB } from 'idb';
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
+import { compactLogRows } from './compactRows';
 import { parseLogDate } from './logDate';
 import { normalizePath } from './url';
 import type { AnalysisMode, IndustryRow, LogRow, PersistedState } from '../types/domain';
@@ -41,7 +42,7 @@ function normalizePersistedState(value: Partial<PersistedState> | null | undefin
     ...value,
     version: 5,
     analysisMode: isAnalysisMode(value.analysisMode) ? value.analysisMode : 'logs',
-    rows: compactRows((value.rows ?? []).map((row: any) => {
+    rows: compactLogRows((value.rows ?? []).map((row: any) => {
       const parsed = row.datetimeRaw ? parseLogDate(row.datetimeRaw) : { parsedAt: row.parsedAt ? new Date(row.parsedAt) : null };
 
       return {
@@ -84,37 +85,6 @@ function saveFallbackState(state: PersistedState): void {
   } catch {
     // IndexedDB remains the primary store; localStorage is only a best-effort fallback.
   }
-}
-
-function compactRows(rows: LogRow[]): LogRow[] {
-  const map = new Map<string, LogRow>();
-
-  rows.forEach((row) => {
-    const key = [
-      row.sid,
-      row.datetimeRaw,
-      row.dateRaw,
-      row.path,
-      row.httpUserAgent,
-      row.botType,
-      row.uaGroup,
-      row.requestStatus,
-      row.country,
-      row.asn,
-      row.subnet,
-      row.netname,
-      row.host,
-      row.sslsignName,
-    ].join('\u001f');
-    const existing = map.get(key);
-    if (existing) {
-      existing.requestCount = (existing.requestCount ?? 1) + (row.requestCount ?? 1);
-    } else {
-      map.set(key, { ...row, requestCount: row.requestCount ?? 1 });
-    }
-  });
-
-  return Array.from(map.values());
 }
 
 export async function loadPersistedState(): Promise<PersistedState> {

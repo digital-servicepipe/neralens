@@ -29,8 +29,11 @@ const servicepipeProductPaths = new Set([
   '/web-ddos-protection',
   '/cybert',
   '/ip-transith',
+  '/ip-transit',
   '/flowcollector',
   '/dosgate',
+  '/dosgate/autopilot',
+  '/dosgate/rlog',
 ]);
 
 const servicepipeIndustryPaths = new Set([
@@ -43,6 +46,7 @@ const servicepipeIndustryPaths = new Set([
 ]);
 
 const servicepipeCompanyPaths = new Set([
+  '/about',
   '/certificates',
   '/pricing',
   '/contacts',

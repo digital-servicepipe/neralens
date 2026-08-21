@@ -2,6 +2,7 @@ import Papa from 'papaparse';
 import { classifyAgentGroup, getBotDisplayName } from '../bots/botDictionary';
 import { normalizeColumnName, normalizeRecord, requiredColumns } from './columnMapping';
 import { getSectionAndPageType, normalizePath } from '../../shared/lib/url';
+import { compactLogRows } from '../../shared/lib/compactRows';
 import { parseLogDate } from '../../shared/lib/logDate';
 import type { LogRow, ParsedLogResult } from '../../shared/types/domain';
 
@@ -75,7 +76,7 @@ export async function parseCsvText(text: string): Promise<ParsedLogResult> {
   }
   const fields = result.meta.fields ?? [];
   validate(fields, result.data);
-  const rows = result.data.flatMap(expandRecord);
+  const rows = compactLogRows(result.data.flatMap(expandRecord));
   return {
     rows,
     rowCount: rows.reduce((sum, row) => sum + (row.requestCount ?? 1), 0),

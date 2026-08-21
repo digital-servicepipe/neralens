@@ -54,6 +54,20 @@ describe('log import', () => {
     expect(parsed.rows[1].host).toBe('servicepipe.ru');
   });
 
+  it('compacts identical imported rows without changing total request count', async () => {
+    const parsed = await parseCsvText([
+      'sid,datetime,http_user_agent,path,cresp_country,cresp_asn,cresp_subnet,cresp_netname,action,bot_type,ua_group,host,sslsign_name,count',
+      '42,2026-07-15 10:00:00,GPTBot/1.0,/docs,RU,AS1,10.0.0.0/24,OpenAI,pass,GPTBot,search_crawlers,example.com,tls-a,2',
+      '42,2026-07-15 10:00:00,GPTBot/1.0,/docs,RU,AS1,10.0.0.0/24,OpenAI,pass,GPTBot,search_crawlers,example.com,tls-a,3',
+      '42,2026-07-15 10:00:00,GPTBot/1.0,/docs,RU,AS1,10.0.0.0/24,OpenAI,block,GPTBot,search_crawlers,example.com,tls-a,5',
+    ].join('\n'));
+
+    expect(parsed.rowCount).toBe(10);
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows.find((row) => row.requestStatus === 'pass')?.requestCount).toBe(5);
+    expect(parsed.rows.find((row) => row.requestStatus === 'block')?.requestCount).toBe(5);
+  });
+
   it('keeps explicit log calendar date for midnight rows', async () => {
     const parsed = await parseCsvText([
       'datetime,http_user_agent,path,count',

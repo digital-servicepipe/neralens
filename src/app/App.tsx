@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bot, Factory, FileText, LayoutGrid, Newspaper, SlidersHorizontal, Upload } from 'lucide-react';
+import { Bot, Factory, FileText, FolderTree, LayoutGrid, Newspaper, SlidersHorizontal, Upload } from 'lucide-react';
 import { emptyFilters, normalizeFilters, type AnalysisMode, type FiltersState, type ImportedFileMeta, type IndustryRow, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
 import { clearPersistedState, loadPersistedState, savePersistedState } from '../shared/lib/storage';
 import { parseLogFile } from '../features/import/logParser';
@@ -13,13 +13,14 @@ import { totalIndustryTraffic } from '../features/analytics/industrySelectors';
 import { emptyIndustryFilters, type IndustryFiltersState } from '../features/dashboard/industry/IndustryDashboard';
 import { emptyIndustryPrRadarState, type IndustryPrRadarState } from '../features/dashboard/industry/IndustryPrRadar';
 
-type Screen = 'overview' | 'pages' | 'pr' | 'settings';
+type Screen = 'overview' | 'pages' | 'sitemap' | 'pr' | 'settings';
 
 const activeScreenKey = 'neralens-active-screen';
 
 const screenMeta: Record<Screen, { title: string; subtitle: string }> = {
   overview: { title: 'Обзор', subtitle: 'Общая картина по запросам AI-ботов к сайту' },
   pages: { title: 'Страницы', subtitle: 'Пути, разделы и детальная статистика по AI-ботам' },
+  sitemap: { title: 'Карта сайта', subtitle: 'Дерево страниц Servicepipe и активность AI-ботов' },
   pr: { title: 'Обзор', subtitle: 'Общая картина по запросам AI-ботов к сайту' },
   settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
 };
@@ -27,6 +28,7 @@ const screenMeta: Record<Screen, { title: string; subtitle: string }> = {
 const industryScreenMeta: Record<Screen, { title: string; subtitle: string }> = {
   overview: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
   pages: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
+  sitemap: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
   pr: { title: 'PR-радар', subtitle: 'Отрасли с заметными отклонениями и динамикой атак' },
   settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
 };
@@ -42,7 +44,7 @@ function createFileMeta(file: File, rowCount: number, kind: AnalysisMode): Impor
 }
 
 function isScreen(value: unknown): value is Screen {
-  return value === 'overview' || value === 'pages' || value === 'pr' || value === 'settings';
+  return value === 'overview' || value === 'pages' || value === 'sitemap' || value === 'pr' || value === 'settings';
 }
 
 function inferSiteDomain(rows: LogRow[]): string {
@@ -117,9 +119,10 @@ export function App() {
   }, [analysisMode, files, industryRows, isReady, robotsTxt, rows, servicepipeLogs, sitemapFiles]);
 
   useEffect(() => {
-    if (analysisMode === 'industry' && activeScreen === 'pages') setActiveScreen('overview');
+    if (analysisMode === 'industry' && (activeScreen === 'pages' || activeScreen === 'sitemap')) setActiveScreen('overview');
     if (analysisMode === 'logs' && activeScreen === 'pr') setActiveScreen('overview');
-  }, [activeScreen, analysisMode]);
+    if (analysisMode === 'logs' && activeScreen === 'sitemap' && !servicepipeLogs) setActiveScreen('pages');
+  }, [activeScreen, analysisMode, servicepipeLogs]);
 
   const deferredFilters = useDeferredValue(filters);
   const analyticsPending = deferredFilters !== filters;
@@ -265,6 +268,7 @@ export function App() {
         <nav className="sidebar-nav">
           <button className={`nav-link ${activeScreen === 'overview' ? 'active' : ''}`} onClick={() => setActiveScreen('overview')}><LayoutGrid className="h-4 w-4" />Обзор</button>
           {analysisMode === 'logs' && <button className={`nav-link ${activeScreen === 'pages' ? 'active' : ''}`} onClick={() => setActiveScreen('pages')}><FileText className="h-4 w-4" />Страницы</button>}
+          {analysisMode === 'logs' && servicepipeLogs && <button className={`nav-link ${activeScreen === 'sitemap' ? 'active' : ''}`} onClick={() => setActiveScreen('sitemap')}><FolderTree className="h-4 w-4" />Карта сайта</button>}
           {analysisMode === 'industry' && <button className={`nav-link ${activeScreen === 'pr' ? 'active' : ''}`} onClick={() => setActiveScreen('pr')}><Newspaper className="h-4 w-4" />PR-радар</button>}
           <button className={`nav-link ${activeScreen === 'settings' ? 'active' : ''}`} onClick={() => setActiveScreen('settings')}><SlidersHorizontal className="h-4 w-4" />Настройки</button>
         </nav>

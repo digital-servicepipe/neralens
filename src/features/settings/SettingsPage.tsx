@@ -46,14 +46,6 @@ export function SettingsPage({ analysisMode, rows, industryRows, files, servicep
         </div>
       </section>
 
-      <section className="panel settings-options-card settings-mode-card">
-        <CardHead icon={<SlidersHorizontal className="h-5 w-5" />} title="Режим анализа" subtitle="ИИ-боты и отраслевой отчёт по атакам." />
-        <div className="settings-mode-toggle" role="group" aria-label="Режим анализа">
-          <button type="button" className={analysisMode === 'logs' ? 'active' : ''} onClick={() => onAnalysisModeChange('logs')}>ИИ-боты</button>
-          <button type="button" className={analysisMode === 'industry' ? 'active' : ''} onClick={() => onAnalysisModeChange('industry')}>Отраслевой</button>
-        </div>
-      </section>
-
       <section className="panel settings-upload-card settings-data-card">
         <CardHead icon={<FileText className="h-5 w-5" />} title={analysisMode === 'industry' ? 'Отраслевой файл' : 'Файл по ИИ-ботам'} subtitle={analysisMode === 'industry' ? 'CSV/TSV с отраслевыми метриками атак.' : 'CSV с запросами ИИ-ботов.'} />
         <div className="settings-card-body">
@@ -76,17 +68,31 @@ export function SettingsPage({ analysisMode, rows, industryRows, files, servicep
         </div>
       </section>
 
-      {analysisMode === 'logs' && <section className="panel settings-options-card">
-        <CardHead icon={<SlidersHorizontal className="h-5 w-5" />} title="Servicepipe" subtitle="Встроенные названия страниц для логов Servicepipe." />
-        <label className="settings-toggle-row">
-          <span>
-            <strong>Логи Servicepipe</strong>
-            <small>{servicepipeLogs ? 'Да: подставляем встроенные русские тайтлы.' : 'Нет: показываем названия из URL или загруженного JSON.'}</small>
-          </span>
-          <input type="checkbox" checked={servicepipeLogs} onChange={(event) => onServicepipeLogsChange(event.currentTarget.checked)} />
-          <span className="settings-toggle" aria-hidden="true" />
-        </label>
-      </section>}
+      <section className="panel settings-options-card settings-preferences-card">
+        <CardHead icon={<SlidersHorizontal className="h-5 w-5" />} title="Параметры анализа" subtitle="Режим отчёта и обработка логов." />
+        <div className={`settings-preferences-grid ${analysisMode === 'logs' ? '' : 'single'}`}>
+          {analysisMode === 'logs' && (
+            <label className="settings-toggle-row">
+              <span>
+                <strong>Логи Servicepipe</strong>
+                <small>{servicepipeLogs ? 'Да: подставляем встроенные русские тайтлы.' : 'Нет: показываем названия из URL или загруженного JSON.'}</small>
+              </span>
+              <input type="checkbox" checked={servicepipeLogs} onChange={(event) => onServicepipeLogsChange(event.currentTarget.checked)} />
+              <span className="settings-toggle" aria-hidden="true" />
+            </label>
+          )}
+          <div className="settings-mode-row">
+            <span>
+              <strong>Режим анализа</strong>
+              <small>{analysisMode === 'industry' ? 'Отраслевой отчёт по атакам.' : 'Аналитика запросов ИИ-ботов.'}</small>
+            </span>
+            <div className="settings-mode-toggle" role="group" aria-label="Режим анализа">
+              <button type="button" className={analysisMode === 'logs' ? 'active' : ''} onClick={() => onAnalysisModeChange('logs')}>ИИ-боты</button>
+              <button type="button" className={analysisMode === 'industry' ? 'active' : ''} onClick={() => onAnalysisModeChange('industry')}>Отраслевой</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="panel settings-danger-card">
         <div>

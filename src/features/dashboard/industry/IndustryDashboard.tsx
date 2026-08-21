@@ -1,10 +1,12 @@
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ArrowDown, ArrowUp, CalendarDays, ChevronDown, ChevronsUpDown, Factory, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarDays, ChevronDown, ChevronsUpDown, Factory, RotateCcw, Search, ShieldAlert, SlidersHorizontal } from 'lucide-react';
 import { Panel } from '../../../shared/ui/Panel';
 import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
 import type { IndustryRow } from '../../../shared/types/domain';
 import { buildIndustryDailySeries, buildIndustrySummaries, totalIndustryTraffic, weightedAverage, type IndustrySummary } from '../../analytics/industrySelectors';
+import { industryThreatColors, industryThreatLabels, industryThreatMetricKeys, industryThreatSeries, type IndustryThreatMetricKey } from './industryThreats';
 
 const axis = { fill: 'var(--fk-muted)', fontSize: 12 };
 const grid = 'rgba(255,255,255,.08)';
@@ -19,7 +21,11 @@ const brandColors = {
   neutralBlue: '#8BBFD7',
   gray: '#ACACAC',
   grayDark: '#808080',
+  mint: '#B5FFE5',
+  violet: '#BFA7FF',
+  yellow: '#D9BE72',
   orangeSoft: '#FFB499',
+  orangeMid: '#FF926B',
   orange: '#F7632F',
   orangeDeep: '#E74A13',
 } as const;
@@ -45,83 +51,109 @@ type ColoredIndustryMetric =
 
 const industryMetricColors: Record<ColoredIndustryMetric, string> = {
   humansPercent: brandColors.turquoise,
-  goodBotsPercent: brandColors.turquoisePale,
+  goodBotsPercent: brandColors.gray,
   ruPercent: brandColors.turquoiseSoft,
   foreignPercent: brandColors.neutralBlue,
-  botsPercent: brandColors.tealDeep,
+  botsPercent: brandColors.turquoise,
   desktopBotsPercent: brandColors.neutralBlue,
-  mobileBotsPercent: brandColors.turquoise,
+  mobileBotsPercent: brandColors.violet,
   unknownBotsPercent: brandColors.grayDark,
   dataCentersPercent: brandColors.gray,
-  strongBotsPercent: brandColors.orangeDeep,
-  badBotsPercent: brandColors.orange,
-  apiPercent: brandColors.orange,
-  parsersPercent: brandColors.orangeSoft,
-  credsPercent: brandColors.orangeDeep,
-  scanerPercent: brandColors.orangeSoft,
-  paymentsCrackPercent: brandColors.orangeDeep,
-  smsPushBomberPercent: brandColors.orange,
+  strongBotsPercent: brandColors.orange,
+  badBotsPercent: industryThreatColors.badBotsPercent,
+  apiPercent: industryThreatColors.apiPercent,
+  parsersPercent: industryThreatColors.parsersPercent,
+  credsPercent: industryThreatColors.credsPercent,
+  scanerPercent: industryThreatColors.scanerPercent,
+  paymentsCrackPercent: industryThreatColors.paymentsCrackPercent,
+  smsPushBomberPercent: industryThreatColors.smsPushBomberPercent,
 };
-
-const industryRankColors = [
-  brandColors.turquoise,
-  brandColors.turquoiseSoft,
-  brandColors.turquoisePale,
-  brandColors.neutralBlue,
-  brandColors.tealDeep,
-  brandColors.gray,
-  brandColors.grayDark,
-];
-
-const attackSeries = [
-  ['apiPercent', 'API-атаки', industryMetricColors.apiPercent],
-  ['parsersPercent', 'Активность парсеров', industryMetricColors.parsersPercent],
-  ['credsPercent', 'Подбор учётных данных', industryMetricColors.credsPercent],
-  ['scanerPercent', 'Сканеры', industryMetricColors.scanerPercent],
-  ['paymentsCrackPercent', 'Подбор платёжных данных', industryMetricColors.paymentsCrackPercent],
-  ['smsPushBomberPercent', 'SMS/Push-бомберы', industryMetricColors.smsPushBomberPercent],
-] as const;
 
 interface MetricDatum {
   name: string;
   value: number;
-  count: number;
+  count: number | null;
   color: string;
+}
+
+interface ThreatTrafficDatum {
+  name: string;
+  totalTraffic: number;
+  badBotsTraffic: number;
+  badBotsPercent: number;
 }
 
 const industryFieldLabels = {
   industry: 'Отрасль компании',
   date: 'Дата',
   allTrafic: 'Общее количество трафика',
+  badBotsPercent: 'Доля вредоносных ботов от общего объёма трафика',
+  goodBotsPercent: 'Доля обеленных ботов (Яндекс, Гугл...) от общего объёма трафика',
+  humansPercent: 'Доля человеческого трафика от общего объёма трафика',
+  botsPercent: 'Доля обычных ботов среди всего бот-трафика',
+  strongBotsPercent: 'Доля продвинутых ботов среди всего бот-трафика',
+  mobileBotsPercent: 'Доля мобильных ботов среди всего бот-трафика',
+  desktopBotsPercent: 'Доля десктопных ботов среди всего бот-трафика',
+  unknownBotsPercent: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика',
+  dataCentersPercent: 'Доля трафика, исходящего из дата-центров от общего объёма трафика',
+  apiPercent: 'Доля API-атак от общего объёма трафика',
+  ruPercent: 'Доля трафика из России от общего объёма трафика',
+  foreignPercent: 'Доля иностранного трафика от общего объёма трафика',
+  parsersPercent: 'Доля активности парсеров от общего объёма трафика',
+  credsPercent: 'Доля атак, связанных с подбором учётных данных от общего объёма трафика',
+  scanerPercent: 'Доля сканеров от общего объёма трафика',
+  paymentsCrackPercent: 'Доля атак, связанных с подбором платёжных данных от общего объёма трафика',
+  smsPushBomberPercent: 'Доля SMS/Push-бомберов от общего объёма трафика',
+} satisfies Record<keyof IndustryRow, string>;
+
+const industryShortLabels: Partial<Record<keyof IndustryRow, string>> = {
   badBotsPercent: 'Вредоносные боты',
-  goodBotsPercent: 'Обеленные боты (Яндекс, Гугл...)',
+  goodBotsPercent: 'Обеленные боты',
   humansPercent: 'Человеческий трафик',
   botsPercent: 'Обычные боты',
   strongBotsPercent: 'Продвинутые боты',
   mobileBotsPercent: 'Мобильные боты',
   desktopBotsPercent: 'Десктопные боты',
-  unknownBotsPercent: 'Боты с неизвестным типом устройства',
-  dataCentersPercent: 'Трафик из дата-центров',
+  unknownBotsPercent: 'Неизвестное устройство',
+  dataCentersPercent: 'Дата-центры',
   apiPercent: 'API-атаки',
-  ruPercent: 'Трафик из России',
+  ruPercent: 'Россия',
   foreignPercent: 'Иностранный трафик',
   parsersPercent: 'Активность парсеров',
   credsPercent: 'Подбор учётных данных',
   scanerPercent: 'Сканеры',
   paymentsCrackPercent: 'Подбор платёжных данных',
   smsPushBomberPercent: 'SMS/Push-бомберы',
-} satisfies Record<keyof IndustryRow, string>;
+};
+
+const industryTableLabels: Partial<Record<IndustrySortKey, string>> = {
+  industry: 'Отрасль',
+  totalTraffic: 'Трафик',
+  humansPercent: 'Человеческий трафик',
+  badBotsPercent: 'Вредоносные боты',
+  goodBotsPercent: 'Обеленные боты',
+  apiPercent: 'API-атаки',
+  parsersPercent: 'Парсеры',
+  credsPercent: 'Подбор учётных данных',
+  scanerPercent: 'Сканеры',
+  paymentsCrackPercent: 'Подбор платёжных данных',
+  smsPushBomberPercent: 'SMS/Push-бомберы',
+};
+
+type MetricBasis = 'totalTraffic' | 'botTrafficShare';
 
 export interface IndustryFiltersState {
   dateFrom: string;
   dateTo: string;
   industries: string[];
+  threats: IndustryThreatMetricKey[];
 }
 
 export const emptyIndustryFilters: IndustryFiltersState = {
   dateFrom: '',
   dateTo: '',
   industries: [],
+  threats: [],
 };
 
 export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
@@ -132,45 +164,39 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
   const totalTraffic = useMemo(() => totalIndustryTraffic(filteredRows), [filteredRows]);
   const activeDates = new Set(filteredRows.map((row) => row.date).filter((date) => date !== 'Unknown')).size;
   const filterOptions = useMemo(() => buildIndustryFilterOptions(rows), [rows]);
-  const trafficMix = useMemo(() => buildMetricBars(filteredRows, [
-    ['humansPercent', industryFieldLabels.humansPercent],
-    ['badBotsPercent', industryFieldLabels.badBotsPercent],
-    ['goodBotsPercent', industryFieldLabels.goodBotsPercent],
-  ]), [filteredRows]);
-  const botProfile = useMemo(() => buildMetricBars(filteredRows, [
-    ['strongBotsPercent', industryFieldLabels.strongBotsPercent],
-    ['botsPercent', industryFieldLabels.botsPercent],
-    ['desktopBotsPercent', industryFieldLabels.desktopBotsPercent],
-    ['mobileBotsPercent', industryFieldLabels.mobileBotsPercent],
-    ['unknownBotsPercent', industryFieldLabels.unknownBotsPercent],
-  ]), [filteredRows]);
+  const selectedThreatKeys = useMemo(() => (filters.threats.length ? filters.threats : [...industryThreatMetricKeys]), [filters.threats]);
+  const selectedAttackSeries = useMemo(() => industryThreatSeries.filter(([key]) => selectedThreatKeys.includes(key)), [selectedThreatKeys]);
+  const botComplexity = useMemo(() => buildMetricBars(filteredRows, [
+    ['strongBotsPercent', industryShortLabels.strongBotsPercent ?? industryFieldLabels.strongBotsPercent],
+    ['botsPercent', industryShortLabels.botsPercent ?? industryFieldLabels.botsPercent],
+  ], 'botTrafficShare'), [filteredRows]);
+  const botDevices = useMemo(() => buildMetricBars(filteredRows, [
+    ['desktopBotsPercent', industryShortLabels.desktopBotsPercent ?? industryFieldLabels.desktopBotsPercent],
+    ['mobileBotsPercent', industryShortLabels.mobileBotsPercent ?? industryFieldLabels.mobileBotsPercent],
+    ['unknownBotsPercent', industryShortLabels.unknownBotsPercent ?? industryFieldLabels.unknownBotsPercent],
+  ], 'botTrafficShare'), [filteredRows]);
   const attackMetrics = useMemo(() => buildMetricBars(filteredRows, [
-    ['apiPercent', industryFieldLabels.apiPercent],
-    ['parsersPercent', industryFieldLabels.parsersPercent],
-    ['credsPercent', industryFieldLabels.credsPercent],
-    ['scanerPercent', industryFieldLabels.scanerPercent],
-    ['paymentsCrackPercent', industryFieldLabels.paymentsCrackPercent],
-    ['smsPushBomberPercent', industryFieldLabels.smsPushBomberPercent],
-  ]).sort((a, b) => b.value - a.value), [filteredRows]);
+    ...selectedThreatKeys.map((key) => [key, industryShortLabels[key] ?? industryFieldLabels[key]] as [keyof IndustryRow, string]),
+  ], 'totalTraffic').sort((a, b) => b.value - a.value), [filteredRows, selectedThreatKeys]);
   const geoInfraMetrics = useMemo(() => buildMetricBars(filteredRows, [
-    ['ruPercent', industryFieldLabels.ruPercent],
-    ['foreignPercent', industryFieldLabels.foreignPercent],
-    ['dataCentersPercent', industryFieldLabels.dataCentersPercent],
-  ]), [filteredRows]);
-  const industryBadBots = summaries
+    ['ruPercent', industryShortLabels.ruPercent ?? industryFieldLabels.ruPercent],
+    ['foreignPercent', industryShortLabels.foreignPercent ?? industryFieldLabels.foreignPercent],
+    ['dataCentersPercent', industryShortLabels.dataCentersPercent ?? industryFieldLabels.dataCentersPercent],
+  ], 'totalTraffic'), [filteredRows]);
+  const industryThreatTraffic = summaries
     .slice()
-    .sort((a, b) => b.badBotsPercent - a.badBotsPercent)
-    .slice(0, 12)
-    .map((item, index) => ({
+    .sort((a, b) => b.totalTraffic - a.totalTraffic)
+    .map((item) => ({
       name: item.industry,
-      value: item.badBotsPercent,
-      traffic: item.totalTraffic,
-      count: estimateMetricCount(item.totalTraffic, item.badBotsPercent),
-      color: industryRankColors[index % industryRankColors.length],
+      totalTraffic: item.totalTraffic,
+      badBotsPercent: item.badBotsPercent,
+      badBotsTraffic: estimateMetricCount(item.totalTraffic, item.badBotsPercent),
     }));
   const attackAxisTicks = useMemo(() => buildPercentTicks(attackMetrics.map((item) => item.value)), [attackMetrics]);
-  const botAxisTicks = useMemo(() => buildPercentTicks(botProfile.map((item) => item.value)), [botProfile]);
-  const industryAxisTicks = useMemo(() => buildPercentTicks(industryBadBots.map((item) => item.value)), [industryBadBots]);
+  const botComplexityTicks = useMemo(() => buildPercentTicks(botComplexity.map((item) => item.value)), [botComplexity]);
+  const botDeviceTicks = useMemo(() => buildPercentTicks(botDevices.map((item) => item.value)), [botDevices]);
+  const keyThreat = useMemo(() => buildKeyThreat(filteredRows, selectedThreatKeys), [filteredRows, selectedThreatKeys]);
+  const keyIndustry = useMemo(() => buildKeyIndustry(summaries, selectedThreatKeys), [summaries, selectedThreatKeys]);
 
   if (!rows.length) {
     return (
@@ -192,40 +218,40 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
         <IndustryKpi label="ОТРАСЛИ" value={formatNumber(summaries.length)} hint="уникальные отрасли" />
         <IndustryKpi label="ДНИ" value={formatNumber(activeDates)} hint="период наблюдений" />
         <IndustryKpi label="ЧЕЛОВЕЧЕСКИЙ ТРАФИК" value={formatPercent(weightedAverage(filteredRows, 'humansPercent'))} hint="доля в общем трафике" />
-        <IndustryKpi label="ВРЕДОНОСНЫЕ БОТЫ" value={formatPercent(weightedAverage(filteredRows, 'badBotsPercent'))} hint="доля в общем трафике" />
-        <IndustryKpi label="ПАРСЕРЫ" value={formatPercent(weightedAverage(filteredRows, 'parsersPercent'))} hint="доля в общем трафике" />
+        <IndustryKpi label="КЛЮЧЕВАЯ УГРОЗА" value={keyThreat.label} hint={`${formatPercent(keyThreat.value)} средняя доля`} compact />
+        <IndustryKpi label="КЛЮЧЕВАЯ ОТРАСЛЬ" value={keyIndustry.industry} hint={`${keyIndustry.metric}: ${formatPercent(keyIndustry.value)}`} compact />
       </section>
 
       <section className="industry-main-grid grid gap-3">
-        <Panel title="Динамика ключевых атак" subtitle="Проценты от всего трафика по дням" bodyClassName="height-chart">
+        <Panel title="Динамика угроз по дням" subtitle="График с динамикой по угрозам и доля по каждой угрозе. Доля считается от общего трафика за день*" bodyClassName="height-chart">
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={daily} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
               <defs>
-                {attackSeries.map(([key, , color]) => (
+                {selectedAttackSeries.map(([key, , color]) => (
                   <linearGradient key={key} id={`industry-${key}`} x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.34} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                    <stop offset="5%" stopColor={color} stopOpacity={0.16} />
+                    <stop offset="95%" stopColor={color} stopOpacity={0.01} />
                   </linearGradient>
                 ))}
               </defs>
               <CartesianGrid stroke={grid} vertical={false} />
               <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={{ stroke: grid }} />
               <YAxis tick={axis} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
-              <Tooltip content={<PercentTooltip />} cursor={chartLineCursor} />
-              {attackSeries.map(([key, name, color]) => (
+              <Tooltip content={<PercentTooltip />} cursor={chartLineCursor} allowEscapeViewBox={{ x: false, y: false }} wrapperStyle={{ outline: 'none' }} />
+              {selectedAttackSeries.map(([key, name, color]) => (
                 <Area key={key} dataKey={key} name={name} type="monotone" stroke={color} fill={`url(#industry-${key})`} strokeWidth={2.25} isAnimationActive={false} dot={false} />
               ))}
             </AreaChart>
           </ResponsiveContainer>
         </Panel>
-        <IndustryBar title={industryFieldLabels.badBotsPercent} subtitle="Проценты от всего трафика по отраслям компании" data={industryBadBots} ticks={industryAxisTicks} />
+        <ThreatTrafficBar data={industryThreatTraffic} />
       </section>
 
       <section className="industry-detail-grid grid gap-3">
-        <DonutPanel title="Состав трафика" subtitle="Проценты от всего трафика" data={trafficMix} />
-        <IndustryBar title="Профиль ботов" subtitle="Проценты внутри всего бот-трафика" data={botProfile} height={260} ticks={botAxisTicks} />
-        <IndustryBar title="Типы атак" subtitle="Проценты от всего трафика" data={attackMetrics} height={300} ticks={attackAxisTicks} />
-        <DonutPanel title="География и инфраструктура" subtitle="Проценты от всего трафика" data={geoInfraMetrics} />
+        <IndustryBar title="Сложность ботов" subtitle="Доля обычных и продвинутых ботов среди всего бот-трафика." data={botComplexity} height={190} ticks={botComplexityTicks} tooltipBasis="botTrafficShare" />
+        <IndustryBar title="Устройства ботов" subtitle="Доля десктопных, мобильных и неизвестных устройств среди всего бот-трафика." data={botDevices} height={220} ticks={botDeviceTicks} tooltipBasis="botTrafficShare" />
+        <IndustryBar title="Типы атак" subtitle="Какие угрозы дают наибольшую долю в all_trafic за выбранный период." data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="totalTraffic" />
+        <DonutPanel title="География и инфраструктура" subtitle="Источник трафика: Россия, зарубежный сегмент и дата-центры." data={geoInfraMetrics} />
         <IndustryTable summaries={summaries} />
       </section>
     </div>
@@ -255,26 +281,48 @@ export function buildIndustryFilterOptions(rows: IndustryRow[]) {
   };
 }
 
-function buildMetricBars(rows: IndustryRow[], items: Array<[keyof IndustryRow, string]>) {
+function buildMetricBars(rows: IndustryRow[], items: Array<[keyof IndustryRow, string]>, basis: MetricBasis) {
   const traffic = totalIndustryTraffic(rows);
   return items.map(([key, name]) => {
     const value = weightedAverage(rows, key);
     return {
       name,
       value,
-      count: estimateMetricCount(traffic, value),
+      count: basis === 'totalTraffic' ? estimateMetricCount(traffic, value) : null,
       color: industryMetricColors[key as ColoredIndustryMetric] ?? brandColors.turquoise,
     };
   });
+}
+
+function buildKeyThreat(rows: IndustryRow[], keys: readonly IndustryThreatMetricKey[]) {
+  return keys
+    .map((key) => ({ key, label: industryThreatLabels[key], value: weightedAverage(rows, key) }))
+    .sort((a, b) => b.value - a.value)[0] ?? { key: 'badBotsPercent', label: industryThreatLabels.badBotsPercent, value: 0 };
+}
+
+function buildKeyIndustry(summaries: IndustrySummary[], keys: readonly IndustryThreatMetricKey[]) {
+  return summaries
+    .map((summary) => ({
+      industry: summary.industry,
+      strongestThreat: keys
+        .map((key) => ({ key, label: industryThreatLabels[key], value: Number(summary[key]) }))
+        .sort((a, b) => b.value - a.value)[0] ?? { key: 'badBotsPercent', label: industryThreatLabels.badBotsPercent, value: 0 },
+    }))
+    .map((item) => ({
+      industry: item.industry,
+      metric: item.strongestThreat.label,
+      value: item.strongestThreat.value,
+    }))
+    .sort((a, b) => b.value - a.value)[0] ?? { industry: 'Нет данных', metric: 'Нет данных', value: 0 };
 }
 
 function estimateMetricCount(traffic: number, percent: number) {
   return Math.round((traffic * percent) / 100);
 }
 
-function IndustryKpi({ label, value, hint }: { label: string; value: string; hint: string }) {
+function IndustryKpi({ label, value, hint, compact }: { label: string; value: string; hint: string; compact?: boolean }) {
   return (
-    <article className="kpi-card panel">
+    <article className={`kpi-card panel ${compact ? 'compact' : ''}`}>
       <p className="kpi-label">{label}</p>
       <p className="kpi-value">{value}</p>
       <p className="kpi-hint">{hint}</p>
@@ -282,7 +330,7 @@ function IndustryKpi({ label, value, hint }: { label: string; value: string; hin
   );
 }
 
-type IndustryPopover = 'date' | 'industries' | null;
+type IndustryPopover = 'date' | 'industries' | 'threats' | null;
 type IndustryPopoverKey = Exclude<IndustryPopover, null>;
 
 export function IndustryFilters({
@@ -298,7 +346,7 @@ export function IndustryFilters({
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const datePopoverRef = useRef<HTMLDivElement | null>(null);
-  const triggerRefs = useRef<Record<IndustryPopoverKey, HTMLButtonElement | null>>({ date: null, industries: null });
+  const triggerRefs = useRef<Record<IndustryPopoverKey, HTMLButtonElement | null>>({ date: null, industries: null, threats: null });
   const wheelAtRef = useRef(0);
   const datePopoverWasOpenRef = useRef(false);
   const [popover, setPopover] = useState<IndustryPopover>(null);
@@ -312,7 +360,7 @@ export function IndustryFilters({
     () => options.industries.filter((industry) => industry.toLowerCase().includes(industryQuery.toLowerCase())),
     [industryQuery, options.industries],
   );
-  const activeCount = [filters.dateFrom || filters.dateTo, filters.industries.length].filter(Boolean).length;
+  const activeCount = [filters.dateFrom || filters.dateTo, filters.industries.length, filters.threats.length].filter(Boolean).length;
 
   useEffect(() => {
     if (popover !== 'date') {
@@ -333,7 +381,7 @@ export function IndustryFilters({
     const panelRect = panelRef.current.getBoundingClientRect();
     const triggerRect = triggerRefs.current[popover]?.getBoundingClientRect();
     if (!triggerRect) return;
-    const preferredWidth = popover === 'date' ? 312 : Math.max(320, Math.round(triggerRect.width));
+    const preferredWidth = popover === 'date' ? 312 : Math.max(popover === 'threats' ? 340 : 320, Math.round(triggerRect.width));
     const width = Math.min(preferredWidth, Math.max(260, Math.round(panelRect.width - 16)));
     const rawLeft = Math.round(triggerRect.left - panelRect.left);
     const maxLeft = Math.max(8, Math.round(panelRect.width - width - 8));
@@ -420,6 +468,7 @@ export function IndustryFilters({
       <div className="filter-fields industry-filter-fields">
         <FilterButton ref={setTriggerRef('date')} icon={<CalendarDays className="h-4 w-4" />} label="Дата" value={dateLabel(filters)} open={popover === 'date'} onClick={() => setPopover(popover === 'date' ? null : 'date')} />
         <FilterButton ref={setTriggerRef('industries')} icon={<Factory className="h-4 w-4" />} label="Отрасли" value={filters.industries.length ? `${filters.industries.length} выбрано` : 'Все'} badge={filters.industries.length || undefined} open={popover === 'industries'} onClick={() => setPopover(popover === 'industries' ? null : 'industries')} wide />
+        <FilterButton ref={setTriggerRef('threats')} icon={<ShieldAlert className="h-4 w-4" />} label="Угрозы" value={threatsLabel(filters.threats)} badge={filters.threats.length || undefined} open={popover === 'threats'} onClick={() => setPopover(popover === 'threats' ? null : 'threats')} wide />
         <button className="filter-reset" onClick={onReset}><RotateCcw className="h-4 w-4" />Сброс</button>
       </div>
 
@@ -468,6 +517,26 @@ export function IndustryFilters({
           <div className="popover-meta popover-footer"><span>{industryOptions.length} из {options.industries.length}</span><button onClick={() => onChange((current) => ({ ...current, industries: [] }))}>Очистить</button></div>
         </ListPopover>
       )}
+
+      {popover === 'threats' && (
+        <ListPopover className="with-footer" style={popoverStyle}>
+          <div className="popover-scroll compact">
+            {industryThreatSeries.map(([key, label, color]) => (
+              <CheckRow
+                key={key}
+                label={label}
+                checked={filters.threats.includes(key)}
+                color={color}
+                onClick={() => onChange((current) => ({ ...current, threats: toggle(current.threats, key) }))}
+              />
+            ))}
+          </div>
+          <div className="popover-meta popover-footer">
+            <span>{filters.threats.length ? `${filters.threats.length} из ${industryThreatSeries.length}` : 'Показаны все угрозы'}</span>
+            <button onClick={() => onChange((current) => ({ ...current, threats: [] }))}>Все угрозы</button>
+          </div>
+        </ListPopover>
+      )}
     </section>
   );
 }
@@ -486,9 +555,9 @@ function ListPopover({ children, className = '', style }: React.PropsWithChildre
   return <div className={`floating-popover list-popover ${className}`} style={style}>{children}</div>;
 }
 
-function CheckRow({ label, checked, onClick }: { label: string; checked: boolean; onClick: () => void }) {
+function CheckRow({ label, checked, onClick, color }: { label: string; checked: boolean; onClick: () => void; color?: string }) {
   return (
-    <button className={`check-row ${checked ? 'checked' : ''}`} onClick={onClick}>
+    <button className={`check-row ${color ? 'color-coded' : ''} ${checked ? 'checked' : ''}`} style={color ? ({ '--bot-color': color } as CSSProperties) : undefined} onClick={onClick}>
       <span className="radio-dot" />
       <span>{label}</span>
     </button>
@@ -510,7 +579,7 @@ function PercentTooltip({ active, payload, label }: any) {
           <span className="chart-tooltip-label"><i style={{ backgroundColor: item.stroke || item.fill }} />{item.name}</span>
           <span className="industry-tooltip-values">
             <strong>≈ {formatCompactNumber(estimateMetricCount(Number(item.payload?.traffic ?? 0), Number(item.value)))}</strong>
-            <small>Доля {formatPercent(Number(item.value))}</small>
+            <small>Доля за день {formatPercent(Number(item.value))}</small>
           </span>
         </div>
       ))}
@@ -518,21 +587,27 @@ function PercentTooltip({ active, payload, label }: any) {
   );
 }
 
-function BarPercentTooltip({ active, payload }: any) {
+function BarPercentTooltip({ active, payload, basis = 'totalTraffic' }: any & { basis?: MetricBasis }) {
   if (!active || !payload?.length) return null;
   const item = payload[0];
   const name = item.payload?.name ?? item.name;
   const color = item.payload?.color || item.fill || brandColors.turquoise;
+  const count = item.payload?.count;
+  const hasCount = basis === 'totalTraffic' && typeof count === 'number';
 
   return (
-    <div className="chart-tooltip industry-bar-tooltip">
-      <div className="chart-tooltip-row industry-tooltip-row">
-        <span className="chart-tooltip-label"><i style={{ backgroundColor: color }} />{name}</span>
-        <span className="industry-tooltip-values">
-          <strong>≈ {formatCompactNumber(Number(item.payload?.count ?? 0))}</strong>
-          <small>Доля {formatPercent(Number(item.value))}</small>
-        </span>
+    <div className="chart-tooltip industry-metric-tooltip">
+      <p><i style={{ backgroundColor: color }} />{name}</p>
+      <div className="industry-threat-tooltip-row accent">
+        <span>{basis === 'botTrafficShare' ? 'Доля внутри бот-трафика' : 'Доля за период'}</span>
+        <strong>{formatPercent(Number(item.value))}</strong>
       </div>
+      {hasCount && (
+        <div className="industry-threat-tooltip-row">
+          <span>Расчётный объём</span>
+          <strong>≈ {formatCompactNumber(Number(count))}</strong>
+        </div>
+      )}
     </div>
   );
 }
@@ -548,7 +623,7 @@ function DonutPanel({ title, subtitle, data }: { title: string; subtitle: string
             <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={92} paddingAngle={2} stroke="rgba(31,32,34,.92)" strokeWidth={2} isAnimationActive={false}>
               {data.map((item) => <Cell key={item.name} fill={item.color} />)}
             </Pie>
-            <Tooltip content={<DonutTooltip />} />
+            <Tooltip content={<DonutTooltip />} allowEscapeViewBox={{ x: false, y: false }} wrapperStyle={{ outline: 'none' }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -556,7 +631,7 @@ function DonutPanel({ title, subtitle, data }: { title: string; subtitle: string
         {data.map((item) => (
           <div className="industry-donut-legend-row" key={item.name}>
             <span><i style={{ backgroundColor: item.color }} />{item.name}</span>
-            <strong>{formatPercent(item.value)}<small>≈ {formatCompactNumber(item.count)}</small></strong>
+            <strong>{formatPercent(item.value)}{typeof item.count === 'number' && <small>≈ {formatCompactNumber(item.count)}</small>}</strong>
           </div>
         ))}
         {total <= 0 && <p className="settings-empty">Нет данных для отображения.</p>}
@@ -575,7 +650,7 @@ function DonutTooltip({ active, payload }: any) {
       <div className="chart-tooltip-row industry-tooltip-row">
         <span className="chart-tooltip-label"><i style={{ backgroundColor: color }} />{item.name}</span>
         <span className="industry-tooltip-values">
-          <strong>≈ {formatCompactNumber(Number(item.payload?.count ?? 0))}</strong>
+          {typeof item.payload?.count === 'number' && <strong>≈ {formatCompactNumber(Number(item.payload.count))}</strong>}
           <small>Доля {formatPercent(Number(item.value))}</small>
         </span>
       </div>
@@ -583,7 +658,7 @@ function DonutTooltip({ active, payload }: any) {
   );
 }
 
-function IndustryBar({ title, subtitle, data, height = 320, ticks }: { title: string; subtitle: string; data: MetricDatum[]; height?: number; ticks: number[] }) {
+function IndustryBar({ title, subtitle, data, height = 320, ticks, tooltipBasis }: { title: string; subtitle: string; data: MetricDatum[]; height?: number; ticks: number[]; tooltipBasis: MetricBasis }) {
   const domainMax = ticks.at(-1) ?? 100;
   return (
     <Panel title={title} subtitle={subtitle}>
@@ -592,12 +667,75 @@ function IndustryBar({ title, subtitle, data, height = 320, ticks }: { title: st
           <CartesianGrid stroke={grid} horizontal={false} />
           <XAxis type="number" tick={axis} axisLine={false} domain={[0, domainMax]} ticks={ticks} tickFormatter={(value) => `${value}%`} />
           <YAxis dataKey="name" type="category" tick={<SingleLineYAxisTick />} tickLine={false} width={220} interval={0} />
-          <Tooltip content={<BarPercentTooltip />} cursor={chartBarCursor} />
+          <Tooltip content={<BarPercentTooltip basis={tooltipBasis} />} cursor={chartBarCursor} allowEscapeViewBox={{ x: false, y: false }} wrapperStyle={{ outline: 'none' }} />
           <Bar dataKey="value" name={title} radius={[0, 8, 8, 0]} isAnimationActive={false}>
             {data.map((item) => <Cell key={item.name} fill={item.color} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+    </Panel>
+  );
+}
+
+function ThreatTrafficTooltip({ item }: { item: ThreatTrafficDatum }) {
+  return (
+    <div className="chart-tooltip industry-threat-tooltip industry-threat-hover">
+      <p>{item.name}</p>
+      <div className="industry-threat-tooltip-row">
+        <span>Общий трафик</span>
+        <strong>{formatCompactNumber(item.totalTraffic)}</strong>
+      </div>
+      <div className="industry-threat-tooltip-row">
+        <span>Вредоносные боты</span>
+        <strong>≈ {formatCompactNumber(item.badBotsTraffic)} · {formatPercent(item.badBotsPercent)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function ThreatTrafficBar({ data }: { data: ThreatTrafficDatum[] }) {
+  const maxTraffic = Math.max(...data.map((item) => item.totalTraffic), 1);
+  const [tooltip, setTooltip] = useState<{ item: ThreatTrafficDatum; x: number; y: number } | null>(null);
+  const positionTooltip = (event: React.PointerEvent, item: ThreatTrafficDatum) => {
+    const width = 300;
+    const height = 88;
+    const padding = 12;
+    const x = Math.min(Math.max(event.clientX + 14, padding), window.innerWidth - width - padding);
+    const preferredY = event.clientY - height / 2;
+    const y = Math.min(Math.max(preferredY, padding), window.innerHeight - height - padding);
+    setTooltip({ item, x, y });
+  };
+
+  return (
+    <Panel title="Вредоносные боты внутри общего трафика по отраслям" subtitle="Отрасли отсортированы по общему трафику. Вся полоса — общий объём трафика; оранжевым — доля вредоносных ботов от общего объёма трафика">
+      <div className={`industry-traffic-bars ${data.length > 10 ? 'scrollable' : ''} ${data.length <= 3 ? 'compact' : ''}`}>
+        {data.map((item) => {
+          const totalWidth = `${Math.max(1.2, (item.totalTraffic / maxTraffic) * 100)}%`;
+          const badWidth = `${Math.max(0, item.badBotsPercent)}%`;
+          return (
+            <div
+              className="industry-traffic-row"
+              key={item.name}
+              onPointerEnter={(event) => positionTooltip(event, item)}
+              onPointerMove={(event) => positionTooltip(event, item)}
+              onPointerLeave={() => setTooltip(null)}
+            >
+              <span className="industry-traffic-label" title={item.name}>{item.name}</span>
+              <div className="industry-traffic-bar-cell">
+                <div className="industry-traffic-track" style={{ width: totalWidth }}>
+                  <span className="industry-traffic-segment bad" style={{ width: badWidth }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {tooltip && createPortal(
+        <div className="industry-dashboard industry-floating-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
+          <ThreatTrafficTooltip item={tooltip.item} />
+        </div>,
+        document.body,
+      )}
     </Panel>
   );
 }
@@ -630,6 +768,12 @@ function dateLabel(filters: IndustryFiltersState) {
   if (filters.dateFrom) return `с ${shortDate(filters.dateFrom)}`;
   if (filters.dateTo) return `до ${shortDate(filters.dateTo)}`;
   return 'Все даты';
+}
+
+function threatsLabel(threats: IndustryThreatMetricKey[]) {
+  if (!threats.length) return 'Все';
+  if (threats.length === 1) return industryThreatLabels[threats[0]];
+  return `${threats.length} выбрано`;
 }
 
 function shortDate(value: string) {
@@ -695,17 +839,17 @@ type IndustrySortKey = 'industry' | 'totalTraffic' | 'humansPercent' | 'badBotsP
 type IndustrySort = { key: IndustrySortKey; direction: 'asc' | 'desc' } | null;
 
 const industryTableColumns: Array<{ key: IndustrySortKey; label: string; render: (item: IndustrySummary) => ReactNode; numeric?: boolean }> = [
-  { key: 'industry', label: industryFieldLabels.industry, render: (item) => item.industry },
-  { key: 'totalTraffic', label: industryFieldLabels.allTrafic, render: (item) => formatNumber(item.totalTraffic), numeric: true },
-  { key: 'humansPercent', label: industryFieldLabels.humansPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.humansPercent} />, numeric: true },
-  { key: 'badBotsPercent', label: industryFieldLabels.badBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.badBotsPercent} />, numeric: true },
-  { key: 'goodBotsPercent', label: industryFieldLabels.goodBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.goodBotsPercent} />, numeric: true },
-  { key: 'apiPercent', label: industryFieldLabels.apiPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.apiPercent} />, numeric: true },
-  { key: 'parsersPercent', label: industryFieldLabels.parsersPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.parsersPercent} />, numeric: true },
-  { key: 'credsPercent', label: industryFieldLabels.credsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.credsPercent} />, numeric: true },
-  { key: 'scanerPercent', label: industryFieldLabels.scanerPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.scanerPercent} />, numeric: true },
-  { key: 'paymentsCrackPercent', label: industryFieldLabels.paymentsCrackPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.paymentsCrackPercent} />, numeric: true },
-  { key: 'smsPushBomberPercent', label: industryFieldLabels.smsPushBomberPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.smsPushBomberPercent} />, numeric: true },
+  { key: 'industry', label: industryTableLabels.industry ?? industryFieldLabels.industry, render: (item) => item.industry },
+  { key: 'totalTraffic', label: industryTableLabels.totalTraffic ?? industryFieldLabels.allTrafic, render: (item) => formatNumber(item.totalTraffic), numeric: true },
+  { key: 'humansPercent', label: industryTableLabels.humansPercent ?? industryFieldLabels.humansPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.humansPercent} />, numeric: true },
+  { key: 'badBotsPercent', label: industryTableLabels.badBotsPercent ?? industryFieldLabels.badBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.badBotsPercent} />, numeric: true },
+  { key: 'goodBotsPercent', label: industryTableLabels.goodBotsPercent ?? industryFieldLabels.goodBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.goodBotsPercent} />, numeric: true },
+  { key: 'apiPercent', label: industryTableLabels.apiPercent ?? industryFieldLabels.apiPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.apiPercent} />, numeric: true },
+  { key: 'parsersPercent', label: industryTableLabels.parsersPercent ?? industryFieldLabels.parsersPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.parsersPercent} />, numeric: true },
+  { key: 'credsPercent', label: industryTableLabels.credsPercent ?? industryFieldLabels.credsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.credsPercent} />, numeric: true },
+  { key: 'scanerPercent', label: industryTableLabels.scanerPercent ?? industryFieldLabels.scanerPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.scanerPercent} />, numeric: true },
+  { key: 'paymentsCrackPercent', label: industryTableLabels.paymentsCrackPercent ?? industryFieldLabels.paymentsCrackPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.paymentsCrackPercent} />, numeric: true },
+  { key: 'smsPushBomberPercent', label: industryTableLabels.smsPushBomberPercent ?? industryFieldLabels.smsPushBomberPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.smsPushBomberPercent} />, numeric: true },
 ];
 
 function MetricValue({ traffic, percent }: { traffic: number; percent: number }) {

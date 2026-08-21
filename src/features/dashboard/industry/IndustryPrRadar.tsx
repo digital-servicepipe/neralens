@@ -1,35 +1,19 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { CalendarDays, ChevronDown, Factory, Gauge, Search, ShieldAlert, Target, TrendingUp } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
 import type { IndustryRow } from '../../../shared/types/domain';
 import { totalIndustryTraffic, weightedAverage } from '../../analytics/industrySelectors';
+import { industryThreatColors, industryThreatLabels, industryThreatMetricKeys, type IndustryThreatMetricKey } from './industryThreats';
 
 const grid = 'rgba(255,255,255,.08)';
 const axis = { fill: 'var(--fk-muted)', fontSize: 12 };
-const riskColor = '#F7632F';
 const neutralColor = '#8BBFD7';
 
-type MetricKey =
-  | 'badBotsPercent'
-  | 'apiPercent'
-  | 'parsersPercent'
-  | 'credsPercent'
-  | 'scanerPercent'
-  | 'paymentsCrackPercent'
-  | 'smsPushBomberPercent';
+type MetricKey = IndustryThreatMetricKey;
 
-const metricLabels: Record<MetricKey, string> = {
-  badBotsPercent: 'Вредоносные боты',
-  apiPercent: 'API-атаки',
-  parsersPercent: 'Активность парсеров',
-  credsPercent: 'Подбор учётных данных',
-  scanerPercent: 'Сканеры',
-  paymentsCrackPercent: 'Подбор платёжных данных',
-  smsPushBomberPercent: 'SMS/Push-бомберы',
-};
-
-const prMetrics: MetricKey[] = ['badBotsPercent', 'apiPercent', 'parsersPercent', 'credsPercent', 'scanerPercent', 'paymentsCrackPercent', 'smsPushBomberPercent'];
+const metricLabels = industryThreatLabels;
+const prMetrics: MetricKey[] = [...industryThreatMetricKeys];
 
 interface CompareWindow {
   currentStart: string;
@@ -169,7 +153,7 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
                 <Tooltip content={<PrTooltip hasPrevious={compareWindow.hasPrevious} />} cursor={{ fill: 'rgba(255,255,255,.06)' }} />
                 {compareWindow.hasPrevious && <Bar dataKey="previous" name="Период сравнения" radius={[0, 7, 7, 0]} fill={neutralColor} isAnimationActive={false} />}
                 <Bar dataKey="current" name="Период отчёта" radius={[0, 7, 7, 0]} isAnimationActive={false}>
-                  {analysis.chartData.map((item) => <Cell key={item.key} fill={item.delta > 0 ? riskColor : neutralColor} />)}
+                  {analysis.chartData.map((item) => <Cell key={item.key} fill={industryThreatColors[item.key]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -354,7 +338,13 @@ function AttackPicker({ value, metrics, disabled, onChange }: { value: MetricKey
           </button>
           <div className="popover-scroll">
             {metrics.map((metric) => (
-              <button key={metric.key} className={`check-row pr-attack-row ${value === metric.key ? 'checked' : ''}`} type="button" onClick={() => { onChange(metric.key); setOpen(false); }}>
+              <button
+                key={metric.key}
+                className={`check-row color-coded pr-attack-row ${value === metric.key ? 'checked' : ''}`}
+                style={{ '--bot-color': industryThreatColors[metric.key] } as CSSProperties}
+                type="button"
+                onClick={() => { onChange(metric.key); setOpen(false); }}
+              >
                 <span className="radio-dot" />
                 <span>{metric.label}</span>
                 <small>{formatPercent(metric.current)}</small>

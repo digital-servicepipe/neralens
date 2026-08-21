@@ -6,12 +6,13 @@ import { OverviewBottom } from './overview/OverviewBottom';
 import { PagesTable } from './tables/PagesTable';
 import { SettingsPage } from '../settings/SettingsPage';
 import { IndustryDashboard } from './industry/IndustryDashboard';
+import { IndustryPrRadar } from './industry/IndustryPrRadar';
 import type { AnalysisMode, FiltersState, ImportedFileMeta, IndustryRow, LogRow, TextFilePayload } from '../../shared/types/domain';
 import type { useAnalytics } from '../analytics/useAnalytics';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
 
 type Analytics = ReturnType<typeof useAnalytics>;
-type Screen = 'overview' | 'pages' | 'settings';
+type Screen = 'overview' | 'pages' | 'pr' | 'settings';
 
 interface DashboardPageProps {
   screen: Screen;
@@ -60,6 +61,7 @@ export function DashboardPage(props: DashboardPageProps) {
   }
 
   if (props.analysisMode === 'industry') {
+    if (props.screen === 'pr') return <IndustryPrRadar rows={props.industryRows} />;
     return <IndustryDashboard rows={props.industryRows} />;
   }
 

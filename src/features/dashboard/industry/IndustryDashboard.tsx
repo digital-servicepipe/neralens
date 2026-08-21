@@ -112,13 +112,13 @@ const industryFieldLabels = {
   smsPushBomberPercent: 'SMS/Push-бомберы',
 } satisfies Record<keyof IndustryRow, string>;
 
-interface IndustryFiltersState {
+export interface IndustryFiltersState {
   dateFrom: string;
   dateTo: string;
   industries: string[];
 }
 
-const emptyIndustryFilters: IndustryFiltersState = {
+export const emptyIndustryFilters: IndustryFiltersState = {
   dateFrom: '',
   dateTo: '',
   industries: [],
@@ -232,7 +232,7 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
   );
 }
 
-function filterIndustryRows(rows: IndustryRow[], filters: IndustryFiltersState) {
+export function filterIndustryRows(rows: IndustryRow[], filters: IndustryFiltersState) {
   const industries = new Set(filters.industries);
   return rows.filter((row) => {
     if (filters.dateFrom && row.date < filters.dateFrom) return false;
@@ -242,7 +242,7 @@ function filterIndustryRows(rows: IndustryRow[], filters: IndustryFiltersState) 
   });
 }
 
-function buildIndustryFilterOptions(rows: IndustryRow[]) {
+export function buildIndustryFilterOptions(rows: IndustryRow[]) {
   const activeDates: Record<string, number> = {};
   const industries = new Set<string>();
   rows.forEach((row) => {
@@ -285,7 +285,7 @@ function IndustryKpi({ label, value, hint }: { label: string; value: string; hin
 type IndustryPopover = 'date' | 'industries' | null;
 type IndustryPopoverKey = Exclude<IndustryPopover, null>;
 
-function IndustryFilters({
+export function IndustryFilters({
   filters,
   options,
   onChange,

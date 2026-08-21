@@ -30,6 +30,7 @@ interface DashboardPageProps {
   onResetFilters: () => void;
   onPathSelect: (path: string) => void;
   onAddLogs: () => void;
+  onAddIndustry: () => void;
   onClearLogs: () => void;
   onServicepipeLogsChange: (value: boolean) => void;
   onAnalysisModeChange: (value: AnalysisMode) => void;
@@ -50,6 +51,7 @@ export function DashboardPage(props: DashboardPageProps) {
         files={props.files}
         servicepipeLogs={props.servicepipeLogs}
         onAddLogs={props.onAddLogs}
+        onAddIndustry={props.onAddIndustry}
         onClearLogs={props.onClearLogs}
         onServicepipeLogsChange={props.onServicepipeLogsChange}
         onAnalysisModeChange={props.onAnalysisModeChange}

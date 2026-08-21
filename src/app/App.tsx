@@ -1,5 +1,5 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, LayoutGrid, SlidersHorizontal } from 'lucide-react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Bot, Factory, FileText, LayoutGrid, SlidersHorizontal, Upload } from 'lucide-react';
 import { emptyFilters, normalizeFilters, type AnalysisMode, type FiltersState, type ImportedFileMeta, type IndustryRow, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
 import { clearPersistedState, loadPersistedState, savePersistedState } from '../shared/lib/storage';
 import { parseLogFile } from '../features/import/logParser';
@@ -71,6 +71,7 @@ export function App() {
   });
 
   const logInputRef = useRef<HTMLInputElement | null>(null);
+  const industryInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadPersistedState()
@@ -176,13 +177,19 @@ export function App() {
     setError('');
   };
 
+  const pickFilesForMode = useCallback((mode: AnalysisMode) => {
+    if (mode === 'industry') industryInputRef.current?.click();
+    else logInputRef.current?.click();
+  }, []);
+
   const controls = useMemo(
     () => (
       <>
-        <input ref={logInputRef} className="hidden" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" multiple onChange={(event) => event.currentTarget.files && void (analysisMode === 'industry' ? handleIndustryFiles(event.currentTarget.files) : handleLogFiles(event.currentTarget.files))} />
+        <input ref={logInputRef} className="hidden" type="file" accept=".csv,text/csv" multiple onChange={(event) => { if (event.currentTarget.files) void handleLogFiles(event.currentTarget.files); event.currentTarget.value = ''; }} />
+        <input ref={industryInputRef} className="hidden" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" multiple onChange={(event) => { if (event.currentTarget.files) void handleIndustryFiles(event.currentTarget.files); event.currentTarget.value = ''; }} />
       </>
     ),
-    [analysisMode, rows, industryRows, files, sitemapFiles, robotsTxt],
+    [rows, industryRows, files, sitemapFiles, robotsTxt],
   );
 
   if (!isReady) {
@@ -190,7 +197,7 @@ export function App() {
   }
 
   const hasProjectData = analysisMode === 'industry' ? industryRows.length > 0 : rows.length > 0 || files.some((file) => file.kind === 'logs');
-  const content = hasProjectData ? (
+  const dashboardContent = (
     <DashboardPage
       screen={activeScreen}
       analysisMode={analysisMode}
@@ -207,7 +214,8 @@ export function App() {
       onFiltersChange={setFilters}
       onResetFilters={() => setFilters(emptyFilters)}
       onPathSelect={(path) => setFilters((current) => ({ ...current, pathQuery: path }))}
-      onAddLogs={() => logInputRef.current?.click()}
+      onAddLogs={() => pickFilesForMode('logs')}
+      onAddIndustry={() => pickFilesForMode('industry')}
       onClearLogs={() => void resetAll()}
       onServicepipeLogsChange={setServicepipeLogs}
       onAnalysisModeChange={(mode) => {
@@ -216,13 +224,15 @@ export function App() {
         setFilters(emptyFilters);
       }}
     />
-  ) : (
+  );
+  const content = activeScreen === 'settings' || hasProjectData ? dashboardContent : (
     <EmptyImportScreen
-      analysisMode={analysisMode}
       error={error}
       isParsing={isParsing}
-      onLogFiles={(incoming) => void (analysisMode === 'industry' ? handleIndustryFiles(incoming) : handleLogFiles(incoming))}
-      onPickLogs={() => logInputRef.current?.click()}
+      onLogFiles={(incoming) => void handleLogFiles(incoming)}
+      onIndustryFiles={(incoming) => void handleIndustryFiles(incoming)}
+      onPickLogs={() => pickFilesForMode('logs')}
+      onPickIndustry={() => pickFilesForMode('industry')}
     />
   );
   const currentScreenMeta = analysisMode === 'industry' ? industryScreenMeta[activeScreen] : screenMeta[activeScreen];
@@ -286,26 +296,79 @@ function EmptyImportScreen({
   error,
   isParsing,
   onLogFiles,
+  onIndustryFiles,
   onPickLogs,
-  analysisMode,
+  onPickIndustry,
 }: {
-  analysisMode: AnalysisMode;
   error: string;
   isParsing: boolean;
   onLogFiles: (files: FileList | File[]) => void;
+  onIndustryFiles: (files: FileList | File[]) => void;
   onPickLogs: () => void;
+  onPickIndustry: () => void;
 }) {
   return (
-    <section className="panel p-6">
-      <div className="drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void onLogFiles(event.dataTransfer.files); }}>
-        <p className="text-2xl font-extrabold text-ink">{analysisMode === 'industry' ? 'Загрузите отраслевой файл' : 'Загрузите логи AI-ботов'}</p>
-        <p className="mt-2 text-sm text-muted">{analysisMode === 'industry' ? 'CSV/TSV с колонками industry, date, all_trafic и процентными метриками.' : 'CSV с логами. После импорта откроется обзор.'}</p>
-        <div className="mt-4 flex gap-2">
-          <button className="primary-button" onClick={onPickLogs}>Загрузить CSV/TSV</button>
+    <section className="panel empty-import-panel">
+      <div className="empty-import-head">
+        <div>
+          <p className="empty-import-kicker">Начало работы</p>
+          <h2>Что будем анализировать?</h2>
+          <p>Загрузите файл, и NeraLens сам откроет подходящий дашборд. Режим можно поменять позже в настройках.</p>
         </div>
+      </div>
+      <div className="empty-import-grid">
+        <ImportChoiceCard
+          icon={<Bot className="h-5 w-5" />}
+          title="ИИ-боты"
+          description="Покажем, какие ИИ-боты ходят на сайт, какие страницы они читают и как меняется активность."
+          meta="CSV"
+          onDrop={onLogFiles}
+          onPick={onPickLogs}
+        />
+        <ImportChoiceCard
+          icon={<Factory className="h-5 w-5" />}
+          title="Отраслевой отчёт"
+          description="Соберём картину по отраслям: общий трафик, человеческий трафик, боты и типы атак."
+          meta="CSV/TSV"
+          onDrop={onIndustryFiles}
+          onPick={onPickIndustry}
+        />
       </div>
       {isParsing && <p className="mt-3 text-sm font-bold text-aqua">Обработка...</p>}
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
     </section>
+  );
+}
+
+function ImportChoiceCard({
+  icon,
+  title,
+  description,
+  meta,
+  onDrop,
+  onPick,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  meta: string;
+  onDrop: (files: FileList | File[]) => void;
+  onPick: () => void;
+}) {
+  return (
+    <div className="import-choice-card" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); onDrop(event.dataTransfer.files); }}>
+      <div className="import-choice-top">
+        <span className="settings-icon" aria-hidden="true">{icon}</span>
+        <span className="import-choice-meta">{meta}</span>
+      </div>
+      <div className="import-choice-copy">
+        <h3>{title}</h3>
+        <p>{description}</p>
+      </div>
+      <button className="primary-button" type="button" onClick={onPick}>
+        <Upload className="h-4 w-4" />
+        Загрузить файл
+      </button>
+    </div>
   );
 }

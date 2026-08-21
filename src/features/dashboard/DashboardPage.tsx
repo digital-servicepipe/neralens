@@ -5,8 +5,8 @@ import { KpiCards } from './kpi/KpiCards';
 import { OverviewBottom } from './overview/OverviewBottom';
 import { PagesTable } from './tables/PagesTable';
 import { SettingsPage } from '../settings/SettingsPage';
-import { IndustryDashboard } from './industry/IndustryDashboard';
-import { IndustryPrRadar } from './industry/IndustryPrRadar';
+import { IndustryDashboard, type IndustryFiltersState } from './industry/IndustryDashboard';
+import { IndustryPrRadar, type IndustryPrRadarState } from './industry/IndustryPrRadar';
 import type { AnalysisMode, FiltersState, ImportedFileMeta, IndustryRow, LogRow, TextFilePayload } from '../../shared/types/domain';
 import type { useAnalytics } from '../analytics/useAnalytics';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
@@ -27,7 +27,11 @@ interface DashboardPageProps {
   filters: FiltersState;
   analytics: Analytics;
   analyticsPending: boolean;
+  industryFilters: IndustryFiltersState;
+  industryPrRadarState: IndustryPrRadarState;
   onFiltersChange: React.Dispatch<React.SetStateAction<FiltersState>>;
+  onIndustryFiltersChange: React.Dispatch<React.SetStateAction<IndustryFiltersState>>;
+  onIndustryPrRadarStateChange: React.Dispatch<React.SetStateAction<IndustryPrRadarState>>;
   onResetFilters: () => void;
   onPathSelect: (path: string) => void;
   onAddLogs: () => void;
@@ -61,8 +65,8 @@ export function DashboardPage(props: DashboardPageProps) {
   }
 
   if (props.analysisMode === 'industry') {
-    if (props.screen === 'pr') return <IndustryPrRadar rows={props.industryRows} />;
-    return <IndustryDashboard rows={props.industryRows} />;
+    if (props.screen === 'pr') return <IndustryPrRadar rows={props.industryRows} state={props.industryPrRadarState} onStateChange={props.onIndustryPrRadarStateChange} />;
+    return <IndustryDashboard rows={props.industryRows} filters={props.industryFilters} onFiltersChange={props.onIndustryFiltersChange} />;
   }
 
   if (props.screen === 'pages') {

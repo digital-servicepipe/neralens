@@ -156,9 +156,19 @@ export const emptyIndustryFilters: IndustryFiltersState = {
   threats: [],
 };
 
-export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
-  const [filters, setFilters] = useState<IndustryFiltersState>(emptyIndustryFilters);
-  const filteredRows = useMemo(() => filterIndustryRows(rows, filters), [filters, rows]);
+export function IndustryDashboard({
+  rows,
+  filters,
+  onFiltersChange,
+}: {
+  rows: IndustryRow[];
+  filters?: IndustryFiltersState;
+  onFiltersChange?: React.Dispatch<React.SetStateAction<IndustryFiltersState>>;
+}) {
+  const [localFilters, setLocalFilters] = useState<IndustryFiltersState>(emptyIndustryFilters);
+  const activeFilters = filters ?? localFilters;
+  const setFilters = onFiltersChange ?? setLocalFilters;
+  const filteredRows = useMemo(() => filterIndustryRows(rows, activeFilters), [activeFilters, rows]);
   const summaries = useMemo(() => buildIndustrySummaries(filteredRows), [filteredRows]);
   const daily = useMemo(() => buildIndustryDailySeries(filteredRows), [filteredRows]);
   const totalTraffic = useMemo(() => totalIndustryTraffic(filteredRows), [filteredRows]);
@@ -166,9 +176,9 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
   const filterOptions = useMemo(() => buildIndustryFilterOptions(rows), [rows]);
   const selectedThreatKeys = useMemo(() => {
     const attackKeySet = new Set<IndustryThreatMetricKey>(industryAttackMetricKeys);
-    const selected = filters.threats.filter((key) => attackKeySet.has(key));
+    const selected = activeFilters.threats.filter((key) => attackKeySet.has(key));
     return selected.length ? selected : [...industryAttackMetricKeys];
-  }, [filters.threats]);
+  }, [activeFilters.threats]);
   const selectedAttackSeries = useMemo(() => industryAttackSeries.filter(([key]) => selectedThreatKeys.includes(key)), [selectedThreatKeys]);
   const botComplexity = useMemo(() => buildMetricBars(filteredRows, [
     ['strongBotsPercent', industryShortLabels.strongBotsPercent ?? industryFieldLabels.strongBotsPercent],
@@ -215,7 +225,7 @@ export function IndustryDashboard({ rows }: { rows: IndustryRow[] }) {
 
   return (
     <div className="view-stack industry-dashboard">
-      <IndustryFilters filters={filters} options={filterOptions} onChange={setFilters} onReset={() => setFilters(emptyIndustryFilters)} />
+      <IndustryFilters filters={activeFilters} options={filterOptions} onChange={setFilters} onReset={() => setFilters(emptyIndustryFilters)} />
 
       <section className="kpi-grid grid gap-3">
         <IndustryKpi label="ТРАФИК" value={formatNumber(totalTraffic)} hint="общий объём в срезе" />

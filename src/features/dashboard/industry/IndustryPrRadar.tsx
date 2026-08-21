@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { CalendarDays, ChevronDown, Factory, Gauge, Search, ShieldAlert, Target, TrendingUp } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
@@ -8,9 +8,23 @@ import { industryThreatColors, industryThreatLabels, industryThreatMetricKeys, t
 
 const grid = 'rgba(255,255,255,.08)';
 const axis = { fill: 'var(--fk-muted)', fontSize: 12 };
-const neutralColor = '#8BBFD7';
 
 type MetricKey = IndustryThreatMetricKey;
+type DateRange = { start: string; end: string };
+
+export interface IndustryPrRadarState {
+  selectedIndustry: string;
+  selectedMetric: MetricKey | 'auto';
+  currentRange: DateRange;
+  previousRange: DateRange;
+}
+
+export const emptyIndustryPrRadarState: IndustryPrRadarState = {
+  selectedIndustry: '',
+  selectedMetric: 'auto',
+  currentRange: { start: '', end: '' },
+  previousRange: { start: '', end: '' },
+};
 
 const metricLabels = industryThreatLabels;
 const prMetrics: MetricKey[] = [...industryThreatMetricKeys];
@@ -48,13 +62,43 @@ interface IndustryAnalysis {
   notes: string[];
 }
 
-export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
+export function IndustryPrRadar({
+  rows,
+  state,
+  onStateChange,
+}: {
+  rows: IndustryRow[];
+  state?: IndustryPrRadarState;
+  onStateChange?: Dispatch<SetStateAction<IndustryPrRadarState>>;
+}) {
   const dateBounds = useMemo(() => buildDateBounds(rows), [rows]);
   const industryOptions = useMemo(() => buildIndustryOptions(rows), [rows]);
-  const [selectedIndustry, setSelectedIndustry] = useState('');
-  const [selectedMetric, setSelectedMetric] = useState<MetricKey | 'auto'>('auto');
-  const [currentRange, setCurrentRange] = useState(() => ({ start: dateBounds.min, end: dateBounds.max }));
-  const [previousRange, setPreviousRange] = useState(() => ({ start: '', end: '' }));
+  const [localState, setLocalState] = useState<IndustryPrRadarState>(() => ({
+    ...emptyIndustryPrRadarState,
+    currentRange: { start: dateBounds.min, end: dateBounds.max },
+  }));
+  const radarState = state ?? localState;
+  const setRadarState = onStateChange ?? setLocalState;
+  const { selectedIndustry, selectedMetric, currentRange, previousRange } = radarState;
+  const setSelectedIndustry = useCallback((value: string) => {
+    setRadarState((current) => ({ ...current, selectedIndustry: value }));
+  }, [setRadarState]);
+  const setSelectedMetric = useCallback((value: MetricKey | 'auto') => {
+    setRadarState((current) => ({ ...current, selectedMetric: value }));
+  }, [setRadarState]);
+  const setCurrentRange = useCallback((value: SetStateAction<DateRange>) => {
+    setRadarState((current) => ({
+      ...current,
+      currentRange: typeof value === 'function' ? value(current.currentRange) : value,
+    }));
+  }, [setRadarState]);
+  const setPreviousRange = useCallback((value: SetStateAction<DateRange>) => {
+    setRadarState((current) => ({
+      ...current,
+      previousRange: typeof value === 'function' ? value(current.previousRange) : value,
+    }));
+  }, [setRadarState]);
+  const previousDateBounds = useMemo(() => buildPreviousDateBounds(dateBounds, currentRange), [currentRange, dateBounds]);
   const compareWindow = useMemo(() => buildCompareWindow(currentRange, previousRange), [currentRange, previousRange]);
   const currentRows = useMemo(() => filterRows(rows, selectedIndustry, compareWindow.currentStart, compareWindow.currentEnd), [compareWindow, rows, selectedIndustry]);
   const previousRows = useMemo(() => filterRows(rows, selectedIndustry, compareWindow.previousStart, compareWindow.previousEnd), [compareWindow, rows, selectedIndustry]);
@@ -65,8 +109,11 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
       start: current.start || dateBounds.min,
       end: current.end || dateBounds.max,
     }, dateBounds));
-    setPreviousRange((current) => normalizeRange(current, dateBounds));
-  }, [dateBounds]);
+  }, [dateBounds, setCurrentRange]);
+
+  useEffect(() => {
+    setPreviousRange((current) => normalizeRange(current, previousDateBounds));
+  }, [previousDateBounds, setPreviousRange]);
 
   useEffect(() => {
     if (selectedIndustry && !industryOptions.includes(selectedIndustry)) setSelectedIndustry('');
@@ -87,7 +134,7 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
         <div>
           <p className="empty-import-kicker">PR-радар</p>
           <h2>Динамика по одной отрасли</h2>
-          <p>Выберите отрасль и период. Если нужен рост или падение, выберите второй период для сравнения. Считаются только даты, которые есть в файле.</p>
+          <p>Выберите отрасль и период. Если нужен рост или падение, добавьте прошлый период. Считаются только даты, которые есть в файле.</p>
         </div>
         <span className="pr-hero-meta">Даты в файле: {dateBounds.label}</span>
       </section>
@@ -101,7 +148,7 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
           <IndustryPicker value={selectedIndustry} options={industryOptions} onChange={setSelectedIndustry} />
           <AttackPicker value={selectedMetric} metrics={analysis?.metrics ?? []} disabled={!selectedIndustry || !currentRows.length} onChange={setSelectedMetric} />
           <PeriodPicker title="Период отчёта" range={currentRange} bounds={dateBounds} onChange={setCurrentRange} required />
-          <PeriodPicker title="Сравнить с" range={previousRange} bounds={dateBounds} onChange={setPreviousRange} />
+          <PeriodPicker title="Прошлый период" range={previousRange} bounds={previousDateBounds} onChange={setPreviousRange} />
         </div>
       </section>
 
@@ -125,7 +172,7 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
             <div>
               <p className="empty-import-kicker">Выбранная отрасль</p>
               <h2>{analysis.industry}</h2>
-              <p>{compareWindow.currentLabel}{compareWindow.hasPrevious ? ` · сравнение с ${compareWindow.previousLabel}` : ' · сравнение не выбрано'}</p>
+              <p>{compareWindow.currentLabel}{compareWindow.hasPrevious ? ` · прошлый период: ${compareWindow.previousLabel}` : ' · прошлый период не выбран'}</p>
             </div>
           </div>
 
@@ -133,7 +180,7 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
             <FactCard icon={<Target className="h-4 w-4" />} label="Трафик" value={formatCompactNumber(analysis.traffic)} detail={`${formatNumber(analysis.rows)} строк за период`} />
             <FactCard icon={<Gauge className="h-4 w-4" />} label={selectedMetric === 'auto' ? 'Главная атака' : 'Выбранная атака'} value={analysis.lead.label} detail={`${formatPercent(analysis.lead.current)} · ≈ ${formatCompactNumber(analysis.lead.count)}`} tone="risk" />
             <FactCard icon={<CalendarDays className="h-4 w-4" />} label="Пик за период" value={formatDate(analysis.peak.peakDate)} detail={`${analysis.peak.label}: ${formatPercent(analysis.peak.peakValue)}`} />
-            <FactCard icon={<TrendingUp className="h-4 w-4" />} label="Динамика" value={compareWindow.hasPrevious ? formatPoints(analysis.lead.delta) : 'не выбрана'} detail={compareWindow.hasPrevious ? `по метрике: ${analysis.lead.label}` : 'выберите второй период'} tone={compareWindow.hasPrevious && analysis.lead.delta > 0 ? 'risk' : undefined} />
+            <FactCard icon={<TrendingUp className="h-4 w-4" />} label="Динамика" value={compareWindow.hasPrevious ? formatPoints(analysis.lead.delta) : 'не выбрана'} detail={compareWindow.hasPrevious ? `по метрике: ${analysis.lead.label}` : 'выберите прошлый период'} tone={compareWindow.hasPrevious && analysis.lead.delta > 0 ? 'risk' : undefined} />
           </div>
 
           <div className="pr-section">
@@ -144,15 +191,20 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
           </div>
 
           <div className="pr-section">
-            <h3>{compareWindow.hasPrevious ? 'Атаки: сейчас и в периоде сравнения' : 'Атаки за выбранный период'}</h3>
+            <h3>{compareWindow.hasPrevious ? 'Атаки: текущий и прошлый период' : 'Атаки за выбранный период'}</h3>
+            {compareWindow.hasPrevious && <p className="pr-chart-note">Цвет закреплён за типом угрозы: насыщенная полоса — текущий период, приглушённая — прошлый период.</p>}
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={analysis.chartData} layout="vertical" margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke={grid} horizontal={false} />
                 <XAxis type="number" tick={axis} axisLine={false} tickFormatter={(value) => `${value}%`} />
                 <YAxis dataKey="label" type="category" tick={axis} tickLine={false} width={170} interval={0} />
                 <Tooltip content={<PrTooltip hasPrevious={compareWindow.hasPrevious} />} cursor={{ fill: 'rgba(255,255,255,.06)' }} />
-                {compareWindow.hasPrevious && <Bar dataKey="previous" name="Период сравнения" radius={[0, 7, 7, 0]} fill={neutralColor} isAnimationActive={false} />}
-                <Bar dataKey="current" name="Период отчёта" radius={[0, 7, 7, 0]} isAnimationActive={false}>
+                {compareWindow.hasPrevious && (
+                  <Bar dataKey="previous" name="Прошлый период" radius={[0, 7, 7, 0]} isAnimationActive={false}>
+                    {analysis.chartData.map((item) => <Cell key={item.key} fill={industryThreatColors[item.key]} fillOpacity={0.28} />)}
+                  </Bar>
+                )}
+                <Bar dataKey="current" name="Текущий период" radius={[0, 7, 7, 0]} isAnimationActive={false}>
                   {analysis.chartData.map((item) => <Cell key={item.key} fill={industryThreatColors[item.key]} />)}
                 </Bar>
               </BarChart>
@@ -160,7 +212,7 @@ export function IndustryPrRadar({ rows }: { rows: IndustryRow[] }) {
           </div>
 
           <div className="pr-method-note">
-            <strong>Как читать:</strong> доли усредняются с весом по all_trafic внутри выбранной отрасли. Объёмы с ≈ считаются как трафик отрасли × доля / 100. Разница указана в процентных пунктах.
+            <strong>Как читать:</strong> доли усредняются с весом по all_trafic внутри выбранной отрасли. Объёмы с ≈ считаются как трафик отрасли × доля / 100. Разница с прошлым периодом указана в процентных пунктах.
           </div>
         </section>
       )}
@@ -194,7 +246,7 @@ function buildIndustryAnalysis(industry: string, currentRows: IndustryRow[], pre
     peak,
     metrics,
     chartData,
-    notes: buildNotes(industry, traffic, lead, leadRank, metrics.length, peak, compareWindow, selectedMetric === 'auto'),
+    notes: buildNotes(industry, traffic, lead, leadRank, metrics.length, compareWindow, selectedMetric === 'auto'),
   };
 }
 
@@ -225,19 +277,19 @@ function buildMetricDynamic(currentRows: IndustryRow[], previousRows: IndustryRo
   };
 }
 
-function buildNotes(industry: string, traffic: number, lead: MetricDynamic, leadRank: number, metricCount: number, peak: MetricDynamic, compareWindow: CompareWindow, automaticMetric: boolean) {
+function buildNotes(industry: string, traffic: number, lead: MetricDynamic, leadRank: number, metricCount: number, compareWindow: CompareWindow, automaticMetric: boolean) {
+  const sourceText = automaticMetric ? `самая заметная из ${metricCount} типов угроз` : 'выбранная угроза';
+  const rankText = leadRank === 1 ? 'на первом месте среди типов угроз' : `на ${leadRank}-м месте среди типов угроз`;
   const notes = [
-    `${industry}, ${compareWindow.currentLabel}: ${automaticMetric ? 'самая высокая метрика' : 'выбранная метрика'} — ${lead.label}. Значение: ${formatPercent(lead.current)}, оценка объёма — ≈ ${formatCompactNumber(lead.count)} из ${formatCompactNumber(traffic)} трафика.`,
-    `${lead.label} занимает ${leadRank}-е место из ${metricCount} типов атак внутри выбранной отрасли за этот период.`,
-    `Пик выбранной метрики внутри периода: ${formatPercent(lead.peakValue)} ${formatDate(lead.peakDate)}.`,
+    `${industry}, ${compareWindow.currentLabel}: ${lead.label.toLowerCase()} — ${sourceText}. По доле в трафике это ${rankText} в выбранной отрасли.`,
+    `Средняя доля за период — ${formatPercent(lead.current)} от общего трафика. Расчётный объём — ≈ ${formatCompactNumber(lead.count)} из ${formatCompactNumber(traffic)} запросов.`,
   ];
   if (compareWindow.hasPrevious) {
-    const direction = lead.delta > 0 ? 'выше' : lead.delta < 0 ? 'ниже' : 'на том же уровне';
-    notes.push(`К периоду сравнения (${compareWindow.previousLabel}) ${lead.label.toLowerCase()} ${direction}: было ${formatPercent(lead.previous)}, стало ${formatPercent(lead.current)}. Разница: ${formatPoints(lead.delta)}.`);
-  } else {
-    notes.push('Период сравнения не выбран. Можно говорить о текущей доле и пике, но нельзя говорить о росте или падении.');
+    const direction = lead.delta > 0 ? 'выросла' : lead.delta < 0 ? 'снизилась' : 'не изменилась';
+    notes.push(`К прошлому периоду ${compareWindow.previousLabel} доля ${lead.label.toLowerCase()} ${direction}: было ${formatPercent(lead.previous)}, стало ${formatPercent(lead.current)}. Изменение — ${formatPoints(lead.delta)}.`);
+    return notes;
   }
-  if (peak.key !== lead.key) notes.push(`Отдельно заметен дневной пик по другой метрике: ${peak.label} — ${formatPercent(peak.peakValue)} ${formatDate(peak.peakDate)}.`);
+  notes.push('Прошлый период не выбран. Поэтому здесь можно использовать только факт за выбранные даты, без вывода о росте или снижении.');
   return notes;
 }
 
@@ -483,6 +535,15 @@ function buildDateBounds(rows: IndustryRow[]) {
   };
 }
 
+function buildPreviousDateBounds(bounds: ReturnType<typeof buildDateBounds>, currentRange: DateRange) {
+  const current = normalizeDateOrder(currentRange);
+  const currentStart = current.start || bounds.min;
+  if (!bounds.min || !bounds.max || !currentStart) return { ...bounds, min: '', max: '', label: 'нет дат' };
+  const previousMax = minIsoDate(bounds.max, shiftIsoDate(currentStart, -1));
+  if (!previousMax || previousMax < bounds.min) return { ...bounds, min: '', max: '', label: 'нет доступных дат' };
+  return { ...bounds, max: previousMax, label: formatRangeLabel(bounds.min, previousMax) };
+}
+
 function buildIndustryOptions(rows: IndustryRow[]) {
   return Array.from(new Set(rows.map((row) => row.industry))).sort((a, b) => a.localeCompare(b, 'ru'));
 }
@@ -493,6 +554,7 @@ function filterRows(rows: IndustryRow[], industry: string, start: string, end: s
 }
 
 function normalizeRange(range: { start: string; end: string }, bounds: { min: string; max: string }) {
+  if (!bounds.min || !bounds.max) return { start: '', end: '' };
   const start = clampDate(range.start, bounds);
   const end = clampDate(range.end, bounds);
   return normalizeDateOrder({ start, end });
@@ -539,6 +601,21 @@ function monthStart(iso: string) {
 
 function addMonths(date: Date, amount: number) {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1);
+}
+
+function shiftIsoDate(iso: string, days: number) {
+  if (!iso) return '';
+  const [year, month, day] = iso.split('-').map(Number);
+  if (!year || !month || !day) return '';
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return formatIso(date);
+}
+
+function minIsoDate(first: string, second: string) {
+  if (!first) return second;
+  if (!second) return first;
+  return first < second ? first : second;
 }
 
 function formatIso(date: Date) {
@@ -608,16 +685,17 @@ function FactCard({ icon, label, value, detail, tone }: { icon: ReactNode; label
 function PrTooltip({ active, payload, hasPrevious }: any) {
   if (!active || !payload?.length) return null;
   const item = payload[0].payload;
+  const color = industryThreatColors[item.key as MetricKey];
   return (
     <div className="chart-tooltip pr-compare-tooltip">
       <p>{item.label}</p>
       <div className="pr-tooltip-line">
-        <span>Доля за период</span>
+        <span><i className="current" style={{ backgroundColor: color }} />Текущий период</span>
         <strong>{formatPercent(item.current)}</strong>
       </div>
       {hasPrevious && (
         <div className="pr-tooltip-line">
-          <span>Доля в сравнении</span>
+          <span><i className="previous" style={{ backgroundColor: color }} />Прошлый период</span>
           <strong>{formatPercent(item.previous)}</strong>
         </div>
       )}
@@ -627,10 +705,6 @@ function PrTooltip({ active, payload, hasPrevious }: any) {
           <strong>{formatPoints(item.delta)}</strong>
         </div>
       )}
-      <div className="pr-tooltip-line muted">
-        <span>Оценка объёма</span>
-        <strong>≈ {formatCompactNumber(item.count)}</strong>
-      </div>
     </div>
   );
 }

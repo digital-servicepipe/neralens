@@ -10,6 +10,8 @@ import { useAnalytics } from '../features/analytics/useAnalytics';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AuthGate } from './AuthGate';
 import { totalIndustryTraffic } from '../features/analytics/industrySelectors';
+import { emptyIndustryFilters, type IndustryFiltersState } from '../features/dashboard/industry/IndustryDashboard';
+import { emptyIndustryPrRadarState, type IndustryPrRadarState } from '../features/dashboard/industry/IndustryPrRadar';
 
 type Screen = 'overview' | 'pages' | 'pr' | 'settings';
 
@@ -65,6 +67,8 @@ export function App() {
   const [note, setNote] = useState('');
   const [isParsing, setParsing] = useState(false);
   const [filters, setFilters] = useState<FiltersState>(() => normalizeFilters(readUrlState().filters));
+  const [industryFilters, setIndustryFilters] = useState<IndustryFiltersState>(emptyIndustryFilters);
+  const [industryPrRadarState, setIndustryPrRadarState] = useState<IndustryPrRadarState>(emptyIndustryPrRadarState);
   const [activeScreen, setActiveScreen] = useState<Screen>(() => {
     const urlScreen = readUrlState().screen;
     if (isScreen(urlScreen)) return urlScreen;
@@ -175,6 +179,8 @@ export function App() {
     setRobotsTxt('');
     setServicepipeLogs(true);
     setFilters(emptyFilters);
+    setIndustryFilters(emptyIndustryFilters);
+    setIndustryPrRadarState(emptyIndustryPrRadarState);
     setActiveScreen('overview');
     setNote('');
     setError('');
@@ -212,9 +218,13 @@ export function App() {
       siteDomain={siteDomain}
       servicepipeLogs={servicepipeLogs}
       filters={filters}
+      industryFilters={industryFilters}
+      industryPrRadarState={industryPrRadarState}
       analytics={analytics}
       analyticsPending={analyticsPending}
       onFiltersChange={setFilters}
+      onIndustryFiltersChange={setIndustryFilters}
+      onIndustryPrRadarStateChange={setIndustryPrRadarState}
       onResetFilters={() => setFilters(emptyFilters)}
       onPathSelect={(path) => setFilters((current) => ({ ...current, pathQuery: path }))}
       onAddLogs={() => pickFilesForMode('logs')}

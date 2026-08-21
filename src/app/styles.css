@@ -2941,8 +2941,8 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--ui-space-4);
-  align-items: start;
-  padding: var(--ui-space-5);
+  align-items: center;
+  padding: var(--ui-space-4);
 }
 
 .industry-pr-page .pr-hero h2 {
@@ -2954,11 +2954,14 @@ body {
 }
 
 .industry-pr-page .pr-hero p:not(.empty-import-kicker) {
-  max-width: 760px;
+  max-width: none;
   margin: var(--ui-space-2) 0 0;
+  overflow: hidden;
   color: var(--ui-color-text-secondary);
   font-size: 13px;
-  line-height: 20px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .industry-pr-page .pr-hero-meta {
@@ -2989,10 +2992,10 @@ body {
 
 .industry-pr-page .pr-controls-panel {
   display: grid;
-  grid-template-columns: minmax(220px, .36fr) minmax(0, 1fr);
+  grid-template-columns: minmax(260px, .32fr) minmax(0, 1fr);
   align-items: center;
   gap: var(--ui-space-3);
-  padding: var(--ui-space-4);
+  padding: var(--ui-space-3);
 }
 
 .industry-pr-page .pr-controls-panel > div:first-child > strong {
@@ -3006,15 +3009,18 @@ body {
 .industry-pr-page .pr-controls-panel > div:first-child > span {
   display: block;
   margin-top: 3px;
+  overflow: hidden;
   color: var(--ui-color-text-secondary);
   font-size: 13px;
-  line-height: 20px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .industry-pr-page .pr-control-grid {
   display: grid;
   grid-template-columns: minmax(230px, 270px) minmax(210px, 240px) minmax(190px, 220px) minmax(190px, 220px);
-  gap: var(--ui-space-3);
+  gap: var(--ui-space-2);
   justify-content: end;
 }
 
@@ -3026,7 +3032,7 @@ body {
 
 .industry-pr-page .pr-period-trigger {
   width: 100%;
-  min-height: 52px;
+  min-height: 46px;
 }
 
 .industry-pr-page .pr-period-popover {
@@ -3090,8 +3096,8 @@ body {
 
 .industry-pr-page .pr-empty-state {
   display: grid;
-  gap: 6px;
-  padding: var(--ui-space-5);
+  gap: 4px;
+  padding: var(--ui-space-4);
 }
 
 .industry-pr-page .pr-empty-state strong {
@@ -3101,9 +3107,12 @@ body {
 }
 
 .industry-pr-page .pr-empty-state span {
+  overflow: hidden;
   color: var(--ui-color-text-secondary);
   font-size: 13px;
-  line-height: 20px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .calendar-day.disabled,
@@ -3203,24 +3212,32 @@ body {
   font-weight: 800;
 }
 
-.industry-pr-page .pr-evidence-list {
-  display: grid;
-  gap: var(--ui-space-2);
+.industry-pr-page .pr-chart-note {
+  margin: calc(-1 * var(--ui-space-2)) 0 var(--ui-space-3);
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 600;
 }
 
-.industry-pr-page .pr-evidence-list p {
-  position: relative;
-  margin: 0;
+.industry-pr-page .pr-evidence-list {
+  display: grid;
   border: 1px solid rgba(255,255,255,.075);
   border-radius: var(--ui-radius-card);
   background: rgba(255,255,255,.03);
+  gap: var(--ui-space-2);
   padding: var(--ui-space-3) var(--ui-space-4) var(--ui-space-3) 34px;
+  position: relative;
+}
+
+.industry-pr-page .pr-evidence-list p {
+  margin: 0;
   color: var(--ui-color-text-secondary);
   font-size: 13px;
   line-height: 20px;
 }
 
-.industry-pr-page .pr-evidence-list p::before {
+.industry-pr-page .pr-evidence-list::before {
   content: "";
   position: absolute;
   top: 17px;
@@ -3271,7 +3288,10 @@ body {
 }
 
 .industry-pr-page .pr-tooltip-line span {
+  display: inline-flex;
   min-width: 0;
+  align-items: center;
+  gap: 7px;
   overflow: hidden;
   color: var(--ui-color-text-muted);
   font-size: 12px;
@@ -3279,6 +3299,17 @@ body {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.industry-pr-page .pr-tooltip-line span i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.industry-pr-page .pr-tooltip-line span i.previous {
+  opacity: .38;
 }
 
 .industry-pr-page .pr-tooltip-line strong {

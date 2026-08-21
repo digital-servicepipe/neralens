@@ -1,6 +1,6 @@
-# NeraLens React/TypeScript
+# React/TypeScript
 
-Исходный React + TypeScript проект для внутреннего аналитического дашборда NeraLens.
+Исходный React + TypeScript проект для внутреннего аналитического дашборда.
 
 ## Команды
 

@@ -2081,8 +2081,8 @@ body {
 
 .settings-upload-card {
   display: grid;
-  min-height: 360px;
-  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  grid-template-rows: auto auto;
   gap: var(--ui-space-5);
 }
 
@@ -2095,14 +2095,14 @@ body {
 .settings-card-body {
   display: grid;
   min-height: 0;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
   gap: var(--ui-space-4);
 }
 
 .settings-file-list {
   display: grid;
-  min-height: 116px;
-  max-height: none;
+  min-height: 48px;
+  max-height: 148px;
   align-content: start;
   gap: var(--ui-space-2);
   overflow-y: auto;
@@ -2231,6 +2231,54 @@ body {
   outline-offset: 3px;
 }
 
+.settings-mode-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(98px, auto));
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid var(--ui-color-line);
+  border-radius: var(--ui-radius-control);
+  background: rgba(255,255,255,.035);
+  padding: 3px;
+}
+
+.settings-mode-toggle button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.settings-mode-card {
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ui-space-5);
+}
+
+.settings-mode-card .settings-card-head {
+  align-items: center;
+}
+
+.settings-mode-card .settings-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.settings-data-card {
+  align-content: start;
+}
+
+.settings-mode-toggle button.active {
+  background: var(--ui-color-accent);
+  color: #071314;
+}
+
 .settings-danger-card {
   grid-column: 1 / -1;
   display: flex;
@@ -2266,6 +2314,259 @@ body {
   overflow-wrap: anywhere;
 }
 
+.industry-dashboard .industry-table-panel {
+  grid-column: 1 / -1;
+  padding: var(--ui-space-5);
+}
+
+.industry-dashboard .industry-main-grid {
+  grid-template-columns: minmax(0, 1.55fr) minmax(420px, .78fr);
+}
+
+.industry-dashboard .industry-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.industry-dashboard .industry-filter-fields {
+  grid-template-columns: minmax(190px, .7fr) minmax(260px, 1.2fr) auto;
+}
+
+.industry-dashboard .industry-donut-body {
+  display: grid;
+  min-height: 260px;
+  grid-template-columns: minmax(220px, .82fr) minmax(260px, 1.18fr);
+  align-items: center;
+  gap: var(--ui-space-5);
+}
+
+.industry-dashboard .industry-donut-chart {
+  position: relative;
+  min-width: 0;
+  height: 230px;
+}
+
+.industry-dashboard .industry-donut-legend {
+  display: grid;
+  gap: var(--ui-space-2);
+}
+
+.industry-dashboard .industry-donut-tooltip {
+  width: max-content;
+  min-width: 300px;
+  max-width: min(420px, 90vw);
+}
+
+.industry-dashboard .industry-bar-tooltip {
+  width: max-content;
+  min-width: 300px;
+  max-width: min(420px, 90vw);
+}
+
+.industry-dashboard .industry-percent-tooltip {
+  min-width: 330px;
+  max-width: min(440px, 90vw);
+}
+
+.industry-dashboard .industry-tooltip-row {
+  grid-template-columns: minmax(150px, 1fr) auto;
+  gap: var(--ui-space-3);
+  align-items: start;
+}
+
+.industry-dashboard .industry-tooltip-row + .industry-tooltip-row {
+  margin-top: 7px;
+}
+
+.industry-dashboard .industry-tooltip-values {
+  display: grid;
+  min-width: 98px;
+  justify-items: end;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.industry-dashboard .industry-tooltip-values strong {
+  color: var(--ui-color-text);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 700;
+}
+
+.industry-dashboard .industry-tooltip-values small {
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.industry-dashboard .industry-donut-legend-row {
+  display: grid;
+  min-height: 40px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ui-space-3);
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: var(--ui-radius-control);
+  background: rgba(255,255,255,.028);
+  padding: var(--ui-space-2) var(--ui-space-3);
+}
+
+.industry-dashboard .industry-donut-legend-row span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--ui-color-text-secondary);
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.industry-dashboard .industry-donut-legend-row i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.industry-dashboard .industry-donut-legend-row strong {
+  display: grid;
+  justify-items: end;
+  color: var(--ui-color-text);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.industry-dashboard .industry-donut-legend-row strong small {
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.industry-dashboard .industry-table-wrap {
+  overflow: visible;
+  border: 1px solid var(--ui-color-line);
+  border-radius: var(--ui-radius-card);
+}
+
+.industry-dashboard .industry-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.industry-dashboard .industry-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-bottom: 1px solid var(--ui-color-line);
+  background: rgba(31,32,34,.98);
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  vertical-align: top;
+}
+
+.industry-dashboard .industry-table td {
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-top: 1px solid rgba(255,255,255,.075);
+  color: var(--ui-color-text-secondary);
+  font-size: 13px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.industry-dashboard .industry-table .numeric-cell {
+  color: var(--ui-color-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.industry-dashboard .industry-metric-value {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+
+.industry-dashboard .industry-metric-value strong {
+  color: var(--ui-color-text);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 700;
+}
+
+.industry-dashboard .industry-metric-value small {
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.industry-dashboard .industry-sort-button {
+  display: grid;
+  width: 100%;
+  min-height: 44px;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: start;
+  gap: var(--ui-space-2);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.industry-dashboard .industry-sort-button span {
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+  line-height: 16px;
+}
+
+.industry-dashboard .industry-sort-icon {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 5px;
+  color: #7f8888;
+}
+
+.industry-dashboard .industry-sort-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.industry-dashboard .industry-sort-button:hover .industry-sort-icon,
+.industry-dashboard .industry-sort-button.active .industry-sort-icon {
+  background: rgba(45,212,191,.14);
+  color: var(--ui-color-accent);
+}
+
+.industry-dashboard .industry-table td > strong,
+.industry-dashboard .industry-table td > span:not(.industry-metric-value) {
+  display: block;
+}
+
+.industry-dashboard .industry-table td > strong {
+  color: var(--ui-color-text);
+}
+
+.industry-dashboard .industry-table td > span:not(.industry-metric-value) {
+  margin-top: var(--ui-space-1);
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+}
+
 @media (max-width: 1440px) {
   .filter-fields {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2289,7 +2590,10 @@ body {
   .filter-fields,
   .kpi-grid,
   .chart-grid,
-  .three-grid {
+  .three-grid,
+  .industry-dashboard .industry-main-grid,
+  .industry-dashboard .industry-detail-grid,
+  .industry-dashboard .industry-filter-fields {
     grid-template-columns: 1fr 1fr;
   }
   .settings-hero {
@@ -2305,14 +2609,23 @@ body {
   .filter-fields,
   .kpi-grid,
   .chart-grid,
-  .three-grid {
+  .three-grid,
+  .industry-dashboard .industry-main-grid,
+  .industry-dashboard .industry-detail-grid,
+  .industry-dashboard .industry-filter-fields,
+  .industry-dashboard .industry-donut-body {
     grid-template-columns: 1fr;
   }
   .settings-page,
   .settings-metrics,
   .settings-card-stats,
+  .settings-mode-card,
+  .settings-mode-toggle,
   .settings-file-row {
     grid-template-columns: 1fr;
+  }
+  .industry-dashboard .industry-table-panel {
+    grid-column: auto;
   }
   .settings-hero,
   .settings-upload-card,

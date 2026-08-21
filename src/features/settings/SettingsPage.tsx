@@ -1,26 +1,32 @@
-import { Database, FileText, Network, SlidersHorizontal, Trash2, Upload } from 'lucide-react';
+import { Database, FileText, SlidersHorizontal, Trash2, Upload } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
-import { parseAllSitemapFiles, totalRequestCount } from '../analytics/selectors';
+import { totalRequestCount } from '../analytics/selectors';
+import { totalIndustryTraffic } from '../analytics/industrySelectors';
 import { formatNumber } from '../../shared/lib/format';
-import type { ImportedFileMeta, LogRow, TextFilePayload } from '../../shared/types/domain';
+import type { AnalysisMode, ImportedFileMeta, IndustryRow, LogRow } from '../../shared/types/domain';
 
 interface SettingsPageProps {
+  analysisMode: AnalysisMode;
   rows: LogRow[];
+  industryRows: IndustryRow[];
   files: ImportedFileMeta[];
-  sitemapFiles: TextFilePayload[];
   servicepipeLogs: boolean;
   onAddLogs: () => void;
-  onSitemapUpload: () => void;
   onClearLogs: () => void;
   onServicepipeLogsChange: (value: boolean) => void;
+  onAnalysisModeChange: (value: AnalysisMode) => void;
 }
 
-export function SettingsPage({ rows, files, sitemapFiles, servicepipeLogs, onAddLogs, onSitemapUpload, onClearLogs, onServicepipeLogsChange }: SettingsPageProps) {
-  const sitemapUrls = useMemo(() => parseAllSitemapFiles(sitemapFiles, servicepipeLogs), [servicepipeLogs, sitemapFiles]);
+export function SettingsPage({ analysisMode, rows, industryRows, files, servicepipeLogs, onAddLogs, onClearLogs, onServicepipeLogsChange, onAnalysisModeChange }: SettingsPageProps) {
   const dates = rows.map((row) => row.date).filter((date) => date !== 'Unknown').sort();
+  const industryDates = industryRows.map((row) => row.date).filter((date) => date !== 'Unknown').sort();
   const period = dates.length ? `${formatDate(dates[0])} - ${formatDate(dates.at(-1) ?? dates[0])}` : 'Не определён';
+  const industryPeriod = industryDates.length ? `${formatDate(industryDates[0])} - ${formatDate(industryDates.at(-1) ?? industryDates[0])}` : 'Не определён';
   const uniquePaths = new Set(rows.map((row) => row.path)).size;
+  const industries = new Set(industryRows.map((row) => row.industry)).size;
   const totalRequests = totalRequestCount(rows);
+  const totalIndustryRequests = totalIndustryTraffic(industryRows);
+  const visibleFiles = useMemo(() => files.filter((file) => file.kind === analysisMode), [analysisMode, files]);
 
   return (
     <div className="settings-page">
@@ -29,62 +35,48 @@ export function SettingsPage({ rows, files, sitemapFiles, servicepipeLogs, onAdd
           <span className="settings-icon" aria-hidden="true"><Database className="h-5 w-5" /></span>
           <div>
             <h2>Данные проекта</h2>
-            <p>Логи и sitemap хранятся в браузере и восстанавливаются после обновления страницы.</p>
+            <p>Загруженные данные хранятся в браузере и восстанавливаются после обновления страницы.</p>
           </div>
         </div>
         <div className="settings-metrics">
-          <InfoBox label="Строки" value={formatNumber(totalRequests)} />
-          <InfoBox label="Файлы логов" value={formatNumber(files.length)} />
-          <InfoBox label="Период" value={period} />
-          <InfoBox label="URL из логов" value={formatNumber(uniquePaths)} />
+          <InfoBox label={analysisMode === 'industry' ? 'Трафик' : 'Строки'} value={formatNumber(analysisMode === 'industry' ? totalIndustryRequests : totalRequests)} />
+          <InfoBox label="Файлы" value={formatNumber(visibleFiles.length)} />
+          <InfoBox label="Период" value={analysisMode === 'industry' ? industryPeriod : period} />
+          <InfoBox label={analysisMode === 'industry' ? 'Отрасли' : 'URL из логов'} value={formatNumber(analysisMode === 'industry' ? industries : uniquePaths)} />
         </div>
       </section>
 
-      <section className="panel settings-upload-card">
-        <CardHead icon={<FileText className="h-5 w-5" />} title="Логи" subtitle="CSV с запросами AI-ботов." />
+      <section className="panel settings-options-card settings-mode-card">
+        <CardHead icon={<SlidersHorizontal className="h-5 w-5" />} title="Режим анализа" subtitle="ИИ-боты и отраслевой отчёт по атакам." />
+        <div className="settings-mode-toggle" role="group" aria-label="Режим анализа">
+          <button type="button" className={analysisMode === 'logs' ? 'active' : ''} onClick={() => onAnalysisModeChange('logs')}>ИИ-боты</button>
+          <button type="button" className={analysisMode === 'industry' ? 'active' : ''} onClick={() => onAnalysisModeChange('industry')}>Отраслевой</button>
+        </div>
+      </section>
+
+      <section className="panel settings-upload-card settings-data-card">
+        <CardHead icon={<FileText className="h-5 w-5" />} title={analysisMode === 'industry' ? 'Отраслевой файл' : 'Файл по ИИ-ботам'} subtitle={analysisMode === 'industry' ? 'CSV/TSV с отраслевыми метриками атак.' : 'CSV с запросами ИИ-ботов.'} />
         <div className="settings-card-body">
           <div className="settings-card-stats">
-            <InfoBox label="Файлы" value={formatNumber(files.length)} />
-            <InfoBox label="Строки" value={formatNumber(totalRequests)} />
+            <InfoBox label="Файлы" value={formatNumber(visibleFiles.length)} />
+            <InfoBox label={analysisMode === 'industry' ? 'Трафик' : 'Строки'} value={formatNumber(analysisMode === 'industry' ? totalIndustryRequests : totalRequests)} />
           </div>
           <div className="settings-file-list">
-            {files.length ? files.map((file) => (
+            {visibleFiles.length ? visibleFiles.map((file) => (
               <div className="settings-file-row" key={file.id}>
                 <strong>{file.name}</strong>
                 <span>{formatNumber(file.rowCount)} строк</span>
               </div>
-            )) : <p className="settings-empty">Файлы логов пока не загружены.</p>}
+            )) : <p className="settings-empty">{analysisMode === 'industry' ? 'Отраслевой файл пока не загружен.' : 'Файлы логов пока не загружены.'}</p>}
           </div>
           <button className="primary-button settings-card-action" type="button" onClick={onAddLogs}>
             <Upload className="h-4 w-4" />
-            Добавить CSV
+            {analysisMode === 'industry' ? 'Загрузить CSV/TSV' : 'Добавить CSV'}
           </button>
         </div>
       </section>
 
-      <section className="panel settings-upload-card">
-        <CardHead icon={<Network className="h-5 w-5" />} title="Sitemap" subtitle="XML-карты сайта и JSON с названиями страниц." />
-        <div className="settings-card-body">
-          <div className="settings-card-stats">
-            <InfoBox label="Файлы" value={formatNumber(sitemapFiles.length)} />
-            <InfoBox label="URL" value={formatNumber(sitemapUrls.length)} />
-          </div>
-          <div className="settings-file-list">
-            {sitemapFiles.length ? sitemapFiles.map((file) => (
-              <div className="settings-file-row" key={file.name}>
-                <strong>{file.name}</strong>
-                <span>{formatNumber(file.content.length)} символов</span>
-              </div>
-            )) : <p className="settings-empty">Sitemap пока не загружен.</p>}
-          </div>
-          <button className="primary-button settings-card-action" type="button" onClick={onSitemapUpload}>
-            <Upload className="h-4 w-4" />
-            Загрузить XML/JSON
-          </button>
-        </div>
-      </section>
-
-      <section className="panel settings-options-card">
+      {analysisMode === 'logs' && <section className="panel settings-options-card">
         <CardHead icon={<SlidersHorizontal className="h-5 w-5" />} title="Servicepipe" subtitle="Встроенные названия страниц для логов Servicepipe." />
         <label className="settings-toggle-row">
           <span>
@@ -94,12 +86,12 @@ export function SettingsPage({ rows, files, sitemapFiles, servicepipeLogs, onAdd
           <input type="checkbox" checked={servicepipeLogs} onChange={(event) => onServicepipeLogsChange(event.currentTarget.checked)} />
           <span className="settings-toggle" aria-hidden="true" />
         </label>
-      </section>
+      </section>}
 
       <section className="panel settings-danger-card">
         <div>
           <h2>Очистка</h2>
-          <p>Удаляет загруженные логи и sitemap из локального хранилища.</p>
+          <p>Удаляет загруженные данные из локального хранилища.</p>
         </div>
         <button className="danger-button" type="button" onClick={onClearLogs}>
           <Trash2 className="h-4 w-4" />

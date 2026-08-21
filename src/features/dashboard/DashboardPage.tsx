@@ -5,17 +5,19 @@ import { KpiCards } from './kpi/KpiCards';
 import { OverviewBottom } from './overview/OverviewBottom';
 import { PagesTable } from './tables/PagesTable';
 import { SettingsPage } from '../settings/SettingsPage';
-import { SiteMapBoard } from '../sitemap-board/SiteMapBoard';
-import type { FiltersState, ImportedFileMeta, LogRow, TextFilePayload } from '../../shared/types/domain';
+import { IndustryDashboard } from './industry/IndustryDashboard';
+import type { AnalysisMode, FiltersState, ImportedFileMeta, IndustryRow, LogRow, TextFilePayload } from '../../shared/types/domain';
 import type { useAnalytics } from '../analytics/useAnalytics';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
 
 type Analytics = ReturnType<typeof useAnalytics>;
-type Screen = 'overview' | 'pages' | 'sitemap' | 'settings';
+type Screen = 'overview' | 'pages' | 'settings';
 
 interface DashboardPageProps {
   screen: Screen;
+  analysisMode: AnalysisMode;
   rows: LogRow[];
+  industryRows: IndustryRow[];
   files: ImportedFileMeta[];
   sitemapFiles: TextFilePayload[];
   robotsTxt: string;
@@ -28,9 +30,9 @@ interface DashboardPageProps {
   onResetFilters: () => void;
   onPathSelect: (path: string) => void;
   onAddLogs: () => void;
-  onSitemapUpload: () => void;
   onClearLogs: () => void;
   onServicepipeLogsChange: (value: boolean) => void;
+  onAnalysisModeChange: (value: AnalysisMode) => void;
 }
 
 export function DashboardPage(props: DashboardPageProps) {
@@ -42,16 +44,21 @@ export function DashboardPage(props: DashboardPageProps) {
   if (props.screen === 'settings') {
     return (
       <SettingsPage
+        analysisMode={props.analysisMode}
         rows={props.rows}
+        industryRows={props.industryRows}
         files={props.files}
-        sitemapFiles={props.sitemapFiles}
         servicepipeLogs={props.servicepipeLogs}
         onAddLogs={props.onAddLogs}
-        onSitemapUpload={props.onSitemapUpload}
         onClearLogs={props.onClearLogs}
         onServicepipeLogsChange={props.onServicepipeLogsChange}
+        onAnalysisModeChange={props.onAnalysisModeChange}
       />
     );
+  }
+
+  if (props.analysisMode === 'industry') {
+    return <IndustryDashboard rows={props.industryRows} />;
   }
 
   if (props.screen === 'pages') {
@@ -59,15 +66,6 @@ export function DashboardPage(props: DashboardPageProps) {
       <div className="view-stack">
         <FiltersPanel filters={props.filters} options={props.analytics.filterOptions} onChange={props.onFiltersChange} onReset={props.onResetFilters} />
         <PagesTable analytics={props.analytics} rows={props.analytics.filteredRows} siteDomain={props.siteDomain} pageTitleCatalog={pageTitleCatalog} onPathSelect={props.onPathSelect} />
-      </div>
-    );
-  }
-
-  if (props.screen === 'sitemap') {
-    return (
-      <div className="view-stack">
-        <FiltersPanel filters={props.filters} options={props.analytics.filterOptions} onChange={props.onFiltersChange} onReset={props.onResetFilters} />
-        <SiteMapBoard rows={props.analytics.filteredRows} filters={props.filters} sitemapFiles={props.sitemapFiles} robotsTxt={props.robotsTxt} siteDomain={props.siteDomain} servicepipeLogs={props.servicepipeLogs} onPathSelect={props.onPathSelect} />
       </div>
     );
   }

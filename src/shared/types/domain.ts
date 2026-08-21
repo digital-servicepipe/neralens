@@ -5,6 +5,7 @@ export type AgentGroup =
   | 'ai_bot_search_crawler';
 
 export type PageType = 'technical' | 'service' | 'file' | 'other';
+export type AnalysisMode = 'logs' | 'industry';
 
 export interface LogRow {
   sid?: string;
@@ -34,10 +35,33 @@ export interface LogRow {
 
 export interface ImportedFileMeta {
   id: string;
-  kind: 'logs';
+  kind: AnalysisMode;
   name: string;
   rowCount: number;
   uploadedAt: string;
+}
+
+export interface IndustryRow {
+  industry: string;
+  date: string;
+  allTrafic: number;
+  badBotsPercent: number;
+  goodBotsPercent: number;
+  humansPercent: number;
+  botsPercent: number;
+  strongBotsPercent: number;
+  mobileBotsPercent: number;
+  desktopBotsPercent: number;
+  unknownBotsPercent: number;
+  dataCentersPercent: number;
+  apiPercent: number;
+  ruPercent: number;
+  foreignPercent: number;
+  parsersPercent: number;
+  credsPercent: number;
+  scanerPercent: number;
+  paymentsCrackPercent: number;
+  smsPushBomberPercent: number;
 }
 
 export interface TextFilePayload {
@@ -64,6 +88,12 @@ export interface ParsedLogResult {
   usedUaGroupColumn: boolean;
 }
 
+export interface ParsedIndustryResult {
+  rows: IndustryRow[];
+  rowCount: number;
+  detectedColumns: string[];
+}
+
 export interface SitemapUrl {
   url: string;
   path: string;
@@ -83,7 +113,9 @@ export interface RobotsRule {
 
 export interface PersistedState {
   version: number;
+  analysisMode: AnalysisMode;
   rows: LogRow[];
+  industryRows: IndustryRow[];
   files: ImportedFileMeta[];
   sitemapFiles: TextFilePayload[];
   robotsTxt: string;

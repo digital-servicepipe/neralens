@@ -2,7 +2,7 @@ import { openDB } from 'idb';
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 import { parseLogDate } from './logDate';
 import { normalizePath } from './url';
-import type { LogRow, PersistedState } from '../types/domain';
+import type { AnalysisMode, IndustryRow, LogRow, PersistedState } from '../types/domain';
 
 const dbName = 'ai-analytics-dashboard';
 const storeName = 'state';
@@ -11,13 +11,19 @@ const fallbackKey = `${dbName}:${stateKey}`;
 const compressedFallbackKey = `${fallbackKey}:compressed`;
 
 const emptyState: PersistedState = {
-  version: 4,
+  version: 5,
+  analysisMode: 'logs',
   rows: [],
+  industryRows: [],
   files: [],
   sitemapFiles: [],
   robotsTxt: '',
   servicepipeLogs: true,
 };
+
+function isAnalysisMode(value: unknown): value is AnalysisMode {
+  return value === 'logs' || value === 'industry';
+}
 
 async function db() {
   return openDB(dbName, 1, {
@@ -33,6 +39,8 @@ function normalizePersistedState(value: Partial<PersistedState> | null | undefin
   return {
     ...emptyState,
     ...value,
+    version: 5,
+    analysisMode: isAnalysisMode(value.analysisMode) ? value.analysisMode : 'logs',
     rows: compactRows((value.rows ?? []).map((row: any) => {
       const parsed = row.datetimeRaw ? parseLogDate(row.datetimeRaw) : { parsedAt: row.parsedAt ? new Date(row.parsedAt) : null };
 
@@ -43,11 +51,16 @@ function normalizePersistedState(value: Partial<PersistedState> | null | undefin
         requestCount: row.requestCount ?? 1,
       };
     })),
-    files: Array.isArray(value.files) ? value.files : [],
+    industryRows: compactIndustryRows(Array.isArray(value.industryRows) ? value.industryRows : []),
+    files: Array.isArray(value.files) ? value.files.map((file: any) => ({ ...file, kind: isAnalysisMode(file?.kind) ? file.kind : 'logs' })) : [],
     sitemapFiles: Array.isArray(value.sitemapFiles) ? value.sitemapFiles : [],
     robotsTxt: typeof value.robotsTxt === 'string' ? value.robotsTxt : '',
     servicepipeLogs: typeof value.servicepipeLogs === 'boolean' ? value.servicepipeLogs : true,
   };
+}
+
+function compactIndustryRows(rows: IndustryRow[]): IndustryRow[] {
+  return rows.filter((row) => row && typeof row.industry === 'string');
 }
 
 function loadFallbackState(): PersistedState {

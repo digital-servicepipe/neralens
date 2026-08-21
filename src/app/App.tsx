@@ -1,29 +1,36 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, GitBranch, LayoutGrid, SlidersHorizontal } from 'lucide-react';
-import { emptyFilters, normalizeFilters, type FiltersState, type ImportedFileMeta, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
+import { FileText, LayoutGrid, SlidersHorizontal } from 'lucide-react';
+import { emptyFilters, normalizeFilters, type AnalysisMode, type FiltersState, type ImportedFileMeta, type IndustryRow, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
 import { clearPersistedState, loadPersistedState, savePersistedState } from '../shared/lib/storage';
 import { parseLogFile } from '../features/import/logParser';
+import { parseIndustryFile } from '../features/import/industryParser';
 import { formatNumber, pluralFiles } from '../shared/lib/format';
 import { readUrlState, writeUrlState } from '../entities/filter/urlState';
 import { useAnalytics } from '../features/analytics/useAnalytics';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AuthGate } from './AuthGate';
+import { totalIndustryTraffic } from '../features/analytics/industrySelectors';
 
-type Screen = 'overview' | 'pages' | 'sitemap' | 'settings';
+type Screen = 'overview' | 'pages' | 'settings';
 
 const activeScreenKey = 'neralens-active-screen';
 
 const screenMeta: Record<Screen, { title: string; subtitle: string }> = {
   overview: { title: 'Обзор', subtitle: 'Общая картина по запросам AI-ботов к сайту' },
   pages: { title: 'Страницы', subtitle: 'Пути, разделы и детальная статистика по AI-ботам' },
-  sitemap: { title: 'Карта', subtitle: 'Структура сайта по sitemap с наложением логов' },
-  settings: { title: 'Настройки', subtitle: 'Загрузка логов, sitemap, очистка и базовые параметры' },
+  settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
 };
 
-function createFileMeta(file: File, rowCount: number): ImportedFileMeta {
+const industryScreenMeta: Record<Screen, { title: string; subtitle: string }> = {
+  overview: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
+  pages: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
+  settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
+};
+
+function createFileMeta(file: File, rowCount: number, kind: AnalysisMode): ImportedFileMeta {
   return {
     id: `${Date.now()}-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
-    kind: 'logs',
+    kind,
     name: file.name,
     rowCount,
     uploadedAt: new Date().toISOString(),
@@ -31,7 +38,7 @@ function createFileMeta(file: File, rowCount: number): ImportedFileMeta {
 }
 
 function isScreen(value: unknown): value is Screen {
-  return value === 'overview' || value === 'pages' || value === 'sitemap' || value === 'settings';
+  return value === 'overview' || value === 'pages' || value === 'settings';
 }
 
 function inferSiteDomain(rows: LogRow[]): string {
@@ -43,15 +50,11 @@ function inferSiteDomain(rows: LogRow[]): string {
   return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
 }
 
-function mergeTextFiles(current: TextFilePayload[], incoming: TextFilePayload[]): TextFilePayload[] {
-  const byName = new Map(current.map((file) => [file.name, file]));
-  incoming.forEach((file) => byName.set(file.name, file));
-  return Array.from(byName.values());
-}
-
 export function App() {
   const [isReady, setReady] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('logs');
   const [rows, setRows] = useState<LogRow[]>([]);
+  const [industryRows, setIndustryRows] = useState<IndustryRow[]>([]);
   const [files, setFiles] = useState<ImportedFileMeta[]>([]);
   const [sitemapFiles, setSitemapFiles] = useState<TextFilePayload[]>([]);
   const [robotsTxt, setRobotsTxt] = useState('');
@@ -68,16 +71,17 @@ export function App() {
   });
 
   const logInputRef = useRef<HTMLInputElement | null>(null);
-  const sitemapInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     loadPersistedState()
       .then((state) => {
         setRows(state.rows);
+        setIndustryRows(state.industryRows);
         setFiles(state.files);
         setSitemapFiles(state.sitemapFiles);
         setRobotsTxt(state.robotsTxt);
         setServicepipeLogs(state.servicepipeLogs);
+        setAnalysisMode(state.analysisMode);
       })
       .catch(() => undefined)
       .finally(() => setReady(true));
@@ -85,10 +89,12 @@ export function App() {
 
   const persist = useCallback(async (state: PersistedState) => {
     setRows(state.rows);
+    setIndustryRows(state.industryRows);
     setFiles(state.files);
     setSitemapFiles(state.sitemapFiles);
     setRobotsTxt(state.robotsTxt);
     setServicepipeLogs(state.servicepipeLogs);
+    setAnalysisMode(state.analysisMode);
     await savePersistedState(state);
     setError('');
   }, []);
@@ -100,12 +106,17 @@ export function App() {
 
   useEffect(() => {
     if (!isReady) return;
-    void savePersistedState({ version: 4, rows, files, sitemapFiles, robotsTxt, servicepipeLogs });
-  }, [files, isReady, robotsTxt, rows, servicepipeLogs, sitemapFiles]);
+    void savePersistedState({ version: 5, analysisMode, rows, industryRows, files, sitemapFiles, robotsTxt, servicepipeLogs });
+  }, [analysisMode, files, industryRows, isReady, robotsTxt, rows, servicepipeLogs, sitemapFiles]);
+
+  useEffect(() => {
+    if (analysisMode === 'industry' && activeScreen === 'pages') setActiveScreen('overview');
+  }, [activeScreen, analysisMode]);
 
   const deferredFilters = useDeferredValue(filters);
   const analyticsPending = deferredFilters !== filters;
   const analytics = useAnalytics(rows, deferredFilters, robotsTxt, activeScreen);
+  const visibleRowsCount = analysisMode === 'industry' ? totalIndustryTraffic(industryRows) : analytics.kpis.totalRequests;
   const siteDomain = useMemo(() => inferSiteDomain(rows), [rows]);
 
   const handleLogFiles = async (incoming: FileList | File[]) => {
@@ -116,9 +127,9 @@ export function App() {
     setNote('');
     try {
       const parsed = await Promise.all(selected.map(async (file) => ({ file, parsed: await parseLogFile(file) })));
-      const metas = parsed.map(({ file, parsed: result }) => createFileMeta(file, result.rowCount));
+      const metas = parsed.map(({ file, parsed: result }) => createFileMeta(file, result.rowCount, 'logs'));
       const nextRows = [...rows, ...parsed.flatMap((item) => item.parsed.rows)];
-      await persist({ version: 4, rows: nextRows, files: [...files, ...metas], sitemapFiles, robotsTxt, servicepipeLogs });
+      await persist({ version: 5, analysisMode: 'logs', rows: nextRows, industryRows, files: [...files, ...metas], sitemapFiles, robotsTxt, servicepipeLogs });
       const total = parsed.reduce((sum, item) => sum + item.parsed.rowCount, 0);
       const usedUaGroup = parsed.some((item) => item.parsed.usedUaGroupColumn);
       setNote(`Загрузка прошла нормально: ${selected.length} ${pluralFiles(selected.length)}, ${formatNumber(total)} строк. ${usedUaGroup ? 'Группы ботов определены из файла.' : 'Группы ботов определены автоматически.'}`);
@@ -130,18 +141,31 @@ export function App() {
     }
   };
 
-  const handleSitemapFiles = async (incoming: FileList | File[]) => {
+  const handleIndustryFiles = async (incoming: FileList | File[]) => {
     const selected = Array.from(incoming);
     if (!selected.length) return;
+    setParsing(true);
     setError('');
-    const next = await Promise.all(selected.map(async (file) => ({ name: file.name, content: await file.text() })));
-    await persist({ version: 4, rows, files, sitemapFiles: mergeTextFiles(sitemapFiles, next), robotsTxt, servicepipeLogs });
-    setActiveScreen('settings');
+    setNote('');
+    try {
+      const parsed = await Promise.all(selected.map(async (file) => ({ file, parsed: await parseIndustryFile(file) })));
+      const metas = parsed.map(({ file, parsed: result }) => createFileMeta(file, result.rowCount, 'industry'));
+      const nextRows = parsed.flatMap((item) => item.parsed.rows);
+      await persist({ version: 5, analysisMode: 'industry', rows, industryRows: nextRows, files: [...files.filter((file) => file.kind !== 'industry'), ...metas], sitemapFiles, robotsTxt, servicepipeLogs });
+      const total = totalIndustryTraffic(nextRows);
+      setNote(`Отраслевой файл загружен: ${selected.length} ${pluralFiles(selected.length)}, ${formatNumber(nextRows.length)} строк, ${formatNumber(total)} трафика.`);
+      setActiveScreen('overview');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Не удалось прочитать отраслевой файл.');
+    } finally {
+      setParsing(false);
+    }
   };
 
   const resetAll = async () => {
     await clearPersistedState();
     setRows([]);
+    setIndustryRows([]);
     setFiles([]);
     setSitemapFiles([]);
     setRobotsTxt('');
@@ -155,22 +179,23 @@ export function App() {
   const controls = useMemo(
     () => (
       <>
-        <input ref={logInputRef} className="hidden" type="file" accept=".csv,text/csv" multiple onChange={(event) => event.currentTarget.files && void handleLogFiles(event.currentTarget.files)} />
-        <input ref={sitemapInputRef} className="hidden" type="file" accept=".xml,.json,text/xml,application/xml,application/json" multiple onChange={(event) => event.currentTarget.files && void handleSitemapFiles(event.currentTarget.files)} />
+        <input ref={logInputRef} className="hidden" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" multiple onChange={(event) => event.currentTarget.files && void (analysisMode === 'industry' ? handleIndustryFiles(event.currentTarget.files) : handleLogFiles(event.currentTarget.files))} />
       </>
     ),
-    [rows, files, sitemapFiles, robotsTxt],
+    [analysisMode, rows, industryRows, files, sitemapFiles, robotsTxt],
   );
 
   if (!isReady) {
     return <LoadingScreen />;
   }
 
-  const hasProjectData = rows.length > 0 || files.length > 0 || sitemapFiles.length > 0 || robotsTxt.trim().length > 0;
+  const hasProjectData = analysisMode === 'industry' ? industryRows.length > 0 : rows.length > 0 || files.some((file) => file.kind === 'logs');
   const content = hasProjectData ? (
     <DashboardPage
       screen={activeScreen}
+      analysisMode={analysisMode}
       rows={rows}
+      industryRows={industryRows}
       files={files}
       sitemapFiles={sitemapFiles}
       robotsTxt={robotsTxt}
@@ -183,19 +208,24 @@ export function App() {
       onResetFilters={() => setFilters(emptyFilters)}
       onPathSelect={(path) => setFilters((current) => ({ ...current, pathQuery: path }))}
       onAddLogs={() => logInputRef.current?.click()}
-      onSitemapUpload={() => sitemapInputRef.current?.click()}
       onClearLogs={() => void resetAll()}
       onServicepipeLogsChange={setServicepipeLogs}
+      onAnalysisModeChange={(mode) => {
+        setAnalysisMode(mode);
+        setActiveScreen('overview');
+        setFilters(emptyFilters);
+      }}
     />
   ) : (
     <EmptyImportScreen
+      analysisMode={analysisMode}
       error={error}
       isParsing={isParsing}
-      onLogFiles={handleLogFiles}
+      onLogFiles={(incoming) => void (analysisMode === 'industry' ? handleIndustryFiles(incoming) : handleLogFiles(incoming))}
       onPickLogs={() => logInputRef.current?.click()}
-      onPickSitemap={() => sitemapInputRef.current?.click()}
     />
   );
+  const currentScreenMeta = analysisMode === 'industry' ? industryScreenMeta[activeScreen] : screenMeta[activeScreen];
 
   return (
     <AuthGate>
@@ -206,23 +236,22 @@ export function App() {
           <span className="brand-mark"><NeraLensLogo /></span>
           <span>
             <strong>NeraLens</strong>
-            <small>ИИ-запросы по логам</small>
+            <small>{analysisMode === 'industry' ? 'Отраслевые атаки' : 'ИИ-запросы по логам'}</small>
           </span>
         </div>
         <nav className="sidebar-nav">
           <button className={`nav-link ${activeScreen === 'overview' ? 'active' : ''}`} onClick={() => setActiveScreen('overview')}><LayoutGrid className="h-4 w-4" />Обзор</button>
-          <button className={`nav-link ${activeScreen === 'pages' ? 'active' : ''}`} onClick={() => setActiveScreen('pages')}><FileText className="h-4 w-4" />Страницы</button>
-          <button className={`nav-link ${activeScreen === 'sitemap' ? 'active' : ''}`} onClick={() => setActiveScreen('sitemap')}><GitBranch className="h-4 w-4" />Карта</button>
+          {analysisMode === 'logs' && <button className={`nav-link ${activeScreen === 'pages' ? 'active' : ''}`} onClick={() => setActiveScreen('pages')}><FileText className="h-4 w-4" />Страницы</button>}
           <button className={`nav-link ${activeScreen === 'settings' ? 'active' : ''}`} onClick={() => setActiveScreen('settings')}><SlidersHorizontal className="h-4 w-4" />Настройки</button>
         </nav>
       </aside>
       <main className="workspace">
         <header className="topbar">
           <div>
-            <h1 className="page-title">{screenMeta[activeScreen].title}</h1>
-            <p className="page-subtitle">{screenMeta[activeScreen].subtitle}</p>
+            <h1 className="page-title">{currentScreenMeta.title}</h1>
+            <p className="page-subtitle">{currentScreenMeta.subtitle}</p>
           </div>
-          <div className="row-count-badge">{analyticsPending ? 'Обновляем...' : `${formatNumber(analytics.kpis.totalRequests)} строк`}</div>
+          <div className="row-count-badge">{analyticsPending ? 'Обновляем...' : `${formatNumber(visibleRowsCount)} ${analysisMode === 'industry' ? 'трафик' : 'строк'}`}</div>
         </header>
         {error && <div className="panel mb-3 p-3 text-sm text-danger">{error}</div>}
         {note && !error && <div className="panel mb-3 p-3 text-sm text-ink">{note}</div>}
@@ -258,22 +287,21 @@ function EmptyImportScreen({
   isParsing,
   onLogFiles,
   onPickLogs,
-  onPickSitemap,
+  analysisMode,
 }: {
+  analysisMode: AnalysisMode;
   error: string;
   isParsing: boolean;
   onLogFiles: (files: FileList | File[]) => void;
   onPickLogs: () => void;
-  onPickSitemap: () => void;
 }) {
   return (
     <section className="panel p-6">
       <div className="drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); void onLogFiles(event.dataTransfer.files); }}>
-        <p className="text-2xl font-extrabold text-ink">Загрузите логи AI-ботов</p>
-        <p className="mt-2 text-sm text-muted">CSV с логами. После импорта откроется обзор.</p>
+        <p className="text-2xl font-extrabold text-ink">{analysisMode === 'industry' ? 'Загрузите отраслевой файл' : 'Загрузите логи AI-ботов'}</p>
+        <p className="mt-2 text-sm text-muted">{analysisMode === 'industry' ? 'CSV/TSV с колонками industry, date, all_trafic и процентными метриками.' : 'CSV с логами. После импорта откроется обзор.'}</p>
         <div className="mt-4 flex gap-2">
-          <button className="primary-button" onClick={onPickLogs}>Загрузить CSV</button>
-          <button className="ghost-button" onClick={onPickSitemap}>Загрузить XML/JSON</button>
+          <button className="primary-button" onClick={onPickLogs}>Загрузить CSV/TSV</button>
         </div>
       </div>
       {isParsing && <p className="mt-3 text-sm font-bold text-aqua">Обработка...</p>}

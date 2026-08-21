@@ -1,9 +1,71 @@
 import type { LogRow, PageType } from '../types/domain';
 
-export const technicalSection = 'Technical';
+export const technicalSection = 'Технические';
 export const pdfSection = 'PDF';
-export const fileSection = 'Files';
+export const fileSection = 'Файлы';
 export const specialSectionOrder = ['/', technicalSection, pdfSection, fileSection] as const;
+
+export const servicepipeSectionLabels = {
+  blog: 'Блог',
+  pressCenter: 'Пресс-центр',
+  news: 'Новости',
+  products: 'Продуктовые страницы',
+  industries: 'Отраслевые страницы',
+  company: 'Компания',
+  partners: 'Партнёрам',
+  misc: 'Прочее',
+} as const;
+
+const servicepipeProductPaths = new Set([
+  '/web-log-analysis',
+  '/stress-test',
+  '/visibla/verify',
+  '/visibla/scan',
+  '/visibla',
+  '/secure-dns-hosting',
+  '/waf',
+  '/antifraud',
+  '/antibot',
+  '/web-ddos-protection',
+  '/cybert',
+  '/ip-transith',
+  '/flowcollector',
+  '/dosgate',
+]);
+
+const servicepipeIndustryPaths = new Set([
+  '/telecom/security-direct-connect',
+  '/telecom/hub-flowcollector',
+  '/retail',
+  '/telecom',
+  '/marketing',
+  '/finance',
+]);
+
+const servicepipeCompanyPaths = new Set([
+  '/certificates',
+  '/pricing',
+  '/contacts',
+  '/career',
+  '/it-career-start',
+  '/cybersecurity-lab',
+  '/why-servicepipe',
+]);
+
+const servicepipePartnerPaths = new Set([
+  '/partners/wmx',
+  '/partners',
+]);
+
+const servicepipeMiscPrefixes = [
+  '/@fs',
+  '/actuator',
+  '/audit',
+  '/aws',
+  '/network',
+  '/stati',
+  '/web',
+];
 
 const technicalPrefixes = ['/_', '/wp-', '/wp/', '/bitrix/', '/api/', '/admin', '/debug', '/robots.txt', '/sitemap', '/ssl/', '/xpvnsulc'];
 const technicalExactPaths = ['/graphql', '/ngsw.json', '/server-info', '/server-status'];
@@ -109,6 +171,19 @@ export function getSectionAndPageType(raw: string): { section: string; pageType:
   if (fileExtensions.test(path)) return { section: fileSection, pageType: 'file' };
   const firstSegment = path.split('/').filter(Boolean)[0];
   return { section: firstSegment ? `/${firstSegment}` : '/', pageType: 'other' };
+}
+
+export function getServicepipeSection(raw: string): string | null {
+  const path = normalizePath(raw).toLowerCase();
+  if (path === '/blog' || path.startsWith('/blog/')) return servicepipeSectionLabels.blog;
+  if (path === '/press-center' || path.startsWith('/press-center/')) return servicepipeSectionLabels.pressCenter;
+  if (path === '/news' || path.startsWith('/news/')) return servicepipeSectionLabels.news;
+  if (servicepipeProductPaths.has(path)) return servicepipeSectionLabels.products;
+  if (servicepipeIndustryPaths.has(path)) return servicepipeSectionLabels.industries;
+  if (servicepipeCompanyPaths.has(path)) return servicepipeSectionLabels.company;
+  if (servicepipePartnerPaths.has(path)) return servicepipeSectionLabels.partners;
+  if (servicepipeMiscPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return servicepipeSectionLabels.misc;
+  return null;
 }
 
 export function titleFromPath(path: string): string {

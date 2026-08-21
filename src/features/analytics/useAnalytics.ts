@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { emptyFilters, type FiltersState, type LogRow } from '../../shared/types/domain';
 import { buildFilterOptions, buildKpis, buildTopLists, buildUrlSummaries, dailySeries, filterRows, hourlySeries, refineSections } from './selectors';
 
-export function useAnalytics(rows: LogRow[], filters: FiltersState = emptyFilters, robotsTxt = '', screen = 'overview') {
-  const refinedRows = useMemo(() => refineSections(rows), [rows]);
+export function useAnalytics(rows: LogRow[], filters: FiltersState = emptyFilters, robotsTxt = '', screen = 'overview', includeServicepipeSections = false) {
+  const refinedRows = useMemo(() => refineSections(rows, includeServicepipeSections), [includeServicepipeSections, rows]);
   const filteredRows = useMemo(() => filterRows(refinedRows, filters), [refinedRows, filters]);
   const filterOptions = useMemo(() => buildFilterOptions(refinedRows), [refinedRows]);
   const kpis = useMemo(() => buildKpis(filteredRows, robotsTxt), [filteredRows, robotsTxt]);

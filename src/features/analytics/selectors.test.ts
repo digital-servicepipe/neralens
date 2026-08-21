@@ -138,37 +138,37 @@ describe('analytics selectors', () => {
       '',
       '',
       '',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Files',
-      'Files',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
-      'Technical',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Файлы',
+      'Файлы',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
+      'Технические',
       'PDF',
     ]);
-    expect(buildFilterOptions(rows).sections).toEqual(['/', 'Technical', 'PDF', 'Files', '/blog', '/docs']);
+    expect(buildFilterOptions(rows).sections).toEqual(['/', 'Технические', 'PDF', 'Файлы', '/blog', '/docs']);
     expect(filterRows(rows, { sections: ['/blog'] })).toHaveLength(3);
     expect(filterRows(rows, { sections: ['/docs'] }).map((item) => item.path)).toEqual(['/docs/intro', '/docs/api/auth', '/docs/api/rate-limits']);
     expect(filterRows(rows, { sections: ['/pricing'] })).toHaveLength(0);
@@ -201,6 +201,8 @@ describe('analytics selectors', () => {
       '/account.json',
     ]);
     expect(filterRows(rows, { sections: ['Files'] }).map((item) => item.path)).toEqual(['/assets/app.js', '/assets/site.css']);
+    expect(filterRows(rows, { sections: ['Технические'] }).map((item) => item.path)).toHaveLength(26);
+    expect(filterRows(rows, { sections: ['Файлы'] }).map((item) => item.path)).toEqual(['/assets/app.js', '/assets/site.css']);
     expect(filterRows(rows, { sections: ['PDF'] }).map((item) => item.path)).toEqual(['/docs/report.pdf']);
     expect(filterRows(rows, { excludedSections: ['Technical', 'PDF', 'Files'] }).map((item) => item.path)).toEqual([
       '/',
@@ -216,5 +218,78 @@ describe('analytics selectors', () => {
       '/search',
       '/pricing',
     ]);
+  });
+
+  it('uses manual Servicepipe sections when Servicepipe logs mode is enabled', () => {
+    const rows = refineSections([
+      { ...row, path: '/blog/waf-or-bot-protection', section: '/blog' },
+      { ...row, path: '/press-center/company-update', section: '/press-center' },
+      { ...row, path: '/news/company-update', section: '/news' },
+      { ...row, path: '/antibot', section: '/antibot' },
+      { ...row, path: '/visibla/scan', section: '/visibla' },
+      { ...row, path: '/telecom/security-direct-connect', section: '/telecom' },
+      { ...row, path: '/finance', section: '/finance' },
+      { ...row, path: '/contacts', section: '/contacts' },
+      { ...row, path: '/partners/wmx', section: '/partners' },
+      { ...row, path: '/@fs/src/main.ts', section: '/@fs' },
+      { ...row, path: '/actuator/health', section: '/actuator' },
+      { ...row, path: '/audit/logs', section: '/audit' },
+      { ...row, path: '/aws/config', section: '/aws' },
+      { ...row, path: '/network/status', section: '/network' },
+      { ...row, path: '/stati/archive', section: '/stati' },
+      { ...row, path: '/web/assets', section: '/web' },
+      { ...row, path: '/random-singleton', section: '/random-singleton' },
+    ], true);
+
+    expect(rows.map((item) => item.section)).toEqual([
+      'Блог',
+      'Пресс-центр',
+      'Новости',
+      'Продуктовые страницы',
+      'Продуктовые страницы',
+      'Отраслевые страницы',
+      'Отраслевые страницы',
+      'Компания',
+      'Партнёрам',
+      'Прочее',
+      'Прочее',
+      'Прочее',
+      'Прочее',
+      'Прочее',
+      'Прочее',
+      'Прочее',
+      '',
+    ]);
+    expect(buildFilterOptions(rows).sections).toEqual([
+      'Блог',
+      'Пресс-центр',
+      'Новости',
+      'Продуктовые страницы',
+      'Отраслевые страницы',
+      'Компания',
+      'Партнёрам',
+      'Прочее',
+    ]);
+    expect(filterRows(rows, { sections: ['Продуктовые страницы'] }).map((item) => item.path)).toEqual(['/antibot', '/visibla/scan']);
+    expect(filterRows(rows, { sections: ['Отраслевые страницы'] }).map((item) => item.path)).toEqual(['/telecom/security-direct-connect', '/finance']);
+    expect(filterRows(rows, { sections: ['Прочее'] }).map((item) => item.path)).toEqual([
+      '/@fs/src/main.ts',
+      '/actuator/health',
+      '/audit/logs',
+      '/aws/config',
+      '/network/status',
+      '/stati/archive',
+      '/web/assets',
+    ]);
+  });
+
+  it('keeps old section promotion when Servicepipe logs mode is disabled', () => {
+    const rows = refineSections([
+      { ...row, path: '/antibot', section: '/antibot' },
+      { ...row, path: '/finance', section: '/finance' },
+      { ...row, path: '/blog/one', section: '/blog' },
+    ], false);
+
+    expect(rows.map((item) => item.section)).toEqual(['', '', '']);
   });
 });

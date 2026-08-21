@@ -123,7 +123,7 @@ export function App() {
 
   const deferredFilters = useDeferredValue(filters);
   const analyticsPending = deferredFilters !== filters;
-  const analytics = useAnalytics(rows, deferredFilters, robotsTxt, activeScreen);
+  const analytics = useAnalytics(rows, deferredFilters, robotsTxt, activeScreen, servicepipeLogs);
   const visibleRowsCount = analysisMode === 'industry' ? totalIndustryTraffic(industryRows) : analytics.kpis.totalRequests;
   const siteDomain = useMemo(() => inferSiteDomain(rows), [rows]);
 

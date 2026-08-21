@@ -1,7 +1,7 @@
 import { getBotDisplayName } from '../bots/botDictionary';
 import { disallowMatches, parseRobotsTxt, parseSitemapXml } from '../sitemap-board/sitemapParser';
 import { normalizeFilters, type AgentGroup, type FiltersState, type LogRow, type SitemapUrl, type TextFilePayload } from '../../shared/types/domain';
-import { getSectionAndPageType, normalizePath, specialSectionOrder } from '../../shared/lib/url';
+import { getSectionAndPageType, getServicepipeSection, normalizePath, servicepipeSectionLabels, specialSectionOrder } from '../../shared/lib/url';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
 
 export interface CountShare {
@@ -67,13 +67,16 @@ function buildPromotedSections(rows: LogRow[]): Set<string> {
   return promoted;
 }
 
-export function refineSections(rows: LogRow[]): AnalyticsRow[] {
+export function refineSections(rows: LogRow[], includeServicepipeSections = false): AnalyticsRow[] {
   const promotedSections = buildPromotedSections(rows);
   return rows.map((row) => {
     const path = normalizePath(row.path);
     const page = getSectionAndPageType(path);
-    const section = page.pageType === 'other'
-      ? (promotedSections.has(page.section) ? page.section : '')
+    const servicepipeSection = includeServicepipeSections ? getServicepipeSection(path) : null;
+    const section = servicepipeSection === servicepipeSectionLabels.misc
+      ? servicepipeSection
+      : page.pageType === 'other'
+      ? (servicepipeSection ?? (promotedSections.has(page.section) ? page.section : ''))
       : page.section;
     return {
       ...row,
@@ -88,17 +91,32 @@ export function refineSections(rows: LogRow[]): AnalyticsRow[] {
 
 function normalizeSectionFilter(section: string): string {
   const legacySections: Record<string, string> = {
-    'Новости': '/news',
-    'Блог': '/blog',
-    'СМИ о нас': '/press-center',
-    'Продуктовые': '/products',
-    'Решения': '/solutions',
-    'Компания': '/company',
+    'Новости': servicepipeSectionLabels.news,
+    'Блог': servicepipeSectionLabels.blog,
+    'СМИ о нас': servicepipeSectionLabels.pressCenter,
+    'Пресс-центр': servicepipeSectionLabels.pressCenter,
+    'Продуктовые': servicepipeSectionLabels.products,
+    'Продуктовые страницы': servicepipeSectionLabels.products,
+    'Решения': servicepipeSectionLabels.industries,
+    'Отраслевые страницы': servicepipeSectionLabels.industries,
+    'Компания': servicepipeSectionLabels.company,
+    'Партнёрам': servicepipeSectionLabels.partners,
+    'Прочее': servicepipeSectionLabels.misc,
     'Служебные': '/service',
-    'Другое': '/other',
+    'Другое': servicepipeSectionLabels.misc,
     'Главная страница': '/',
-    'Технические': 'Technical',
-    'Файлы': 'Files',
+    'Technical': 'Технические',
+    'Технические': 'Технические',
+    'Files': 'Файлы',
+    'Файлы': 'Файлы',
+    '/blog': servicepipeSectionLabels.blog,
+    '/news': servicepipeSectionLabels.news,
+    '/press-center': servicepipeSectionLabels.pressCenter,
+    '/products': servicepipeSectionLabels.products,
+    '/solutions': servicepipeSectionLabels.industries,
+    '/company': servicepipeSectionLabels.company,
+    '/partners': servicepipeSectionLabels.partners,
+    '/other': servicepipeSectionLabels.misc,
   };
   if ((specialSectionOrder as readonly string[]).includes(section)) return section;
   if (legacySections[section]) return legacySections[section];
@@ -109,7 +127,19 @@ function normalizeSectionFilter(section: string): string {
 function sectionSortKey(section: string): [number, number, string] {
   const specialIndex = specialSectionOrder.indexOf(section as (typeof specialSectionOrder)[number]);
   if (specialIndex !== -1) return [0, specialIndex, section];
-  return [1, 0, section];
+  const servicepipeOrder = [
+    servicepipeSectionLabels.blog,
+    servicepipeSectionLabels.pressCenter,
+    servicepipeSectionLabels.news,
+    servicepipeSectionLabels.products,
+    servicepipeSectionLabels.industries,
+    servicepipeSectionLabels.company,
+    servicepipeSectionLabels.partners,
+    servicepipeSectionLabels.misc,
+  ];
+  const servicepipeIndex = servicepipeOrder.indexOf(section as (typeof servicepipeOrder)[number]);
+  if (servicepipeIndex !== -1) return [1, servicepipeIndex, section];
+  return [2, 0, section];
 }
 
 export function filterRows<T extends LogRow | AnalyticsRow>(rows: T[], filters: Partial<FiltersState>): T[] {
@@ -122,13 +152,14 @@ export function filterRows<T extends LogRow | AnalyticsRow>(rows: T[], filters: 
   const requestStatuses = new Set(safeFilters.requestStatuses);
   const countries = new Set(safeFilters.countries);
   return rows.filter((row) => {
+    const rowSection = normalizeSectionFilter(row.section);
     if (safeFilters.dateFrom && row.date < safeFilters.dateFrom) return false;
     if (safeFilters.dateTo && row.date > safeFilters.dateTo) return false;
     if (agentGroups.size && !agentGroups.has(row.agentGroup)) return false;
     if (agentDetails.size && !agentDetails.has(botNameFor(row))) return false;
     if (requestStatuses.size && !requestStatuses.has(row.requestStatus)) return false;
-    if (selectedSections.size && !selectedSections.has(row.section)) return false;
-    if (excludedSections.has(row.section)) return false;
+    if (selectedSections.size && !selectedSections.has(rowSection)) return false;
+    if (excludedSections.has(rowSection)) return false;
     if (countries.size && !countries.has(row.country)) return false;
     if (pathQuery && !pathLowerFor(row).includes(pathQuery)) return false;
     return true;

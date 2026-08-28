@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
 import type { IndustryRow } from '../../../shared/types/domain';
 import { totalIndustryTraffic, weightedAverage } from '../../analytics/industrySelectors';
-import { industryThreatColors, industryThreatLabels, industryThreatMetricKeys, type IndustryThreatMetricKey } from './industryThreats';
+import { industryAttackMetricKeys, industryThreatColors, industryThreatLabels, type IndustryThreatMetricKey } from './industryThreats';
 
 const grid = 'rgba(255,255,255,.08)';
 const axis = { fill: 'var(--fk-muted)', fontSize: 12 };
@@ -27,7 +27,7 @@ export const emptyIndustryPrRadarState: IndustryPrRadarState = {
 };
 
 const metricLabels = industryThreatLabels;
-const prMetrics: MetricKey[] = [...industryThreatMetricKeys];
+const prMetrics: MetricKey[] = [...industryAttackMetricKeys];
 
 interface CompareWindow {
   currentStart: string;
@@ -278,8 +278,8 @@ function buildMetricDynamic(currentRows: IndustryRow[], previousRows: IndustryRo
 }
 
 function buildNotes(industry: string, traffic: number, lead: MetricDynamic, leadRank: number, metricCount: number, compareWindow: CompareWindow, automaticMetric: boolean) {
-  const sourceText = automaticMetric ? `самая заметная из ${metricCount} типов угроз` : 'выбранная угроза';
-  const rankText = leadRank === 1 ? 'на первом месте среди типов угроз' : `на ${leadRank}-м месте среди типов угроз`;
+  const sourceText = automaticMetric ? `самая заметная из ${metricCount} типов атак` : 'выбранная атака';
+  const rankText = leadRank === 1 ? 'на первом месте среди типов атак' : `на ${leadRank}-м месте среди типов атак`;
   const notes = [
     `${industry}, ${compareWindow.currentLabel}: ${lead.label.toLowerCase()} — ${sourceText}. По доле в трафике это ${rankText} в выбранной отрасли.`,
     `Средняя доля за период — ${formatPercent(lead.current)} от общего трафика. Расчётный объём — ≈ ${formatCompactNumber(lead.count)} из ${formatCompactNumber(traffic)} запросов.`,

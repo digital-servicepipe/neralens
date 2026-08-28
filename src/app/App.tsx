@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bot, Factory, FileText, FolderTree, LayoutGrid, Newspaper, SlidersHorizontal, Upload } from 'lucide-react';
+import { Bot, Factory, FileText, FolderTree, LayoutGrid, Newspaper, Sparkles, SlidersHorizontal, Upload } from 'lucide-react';
 import { emptyFilters, normalizeFilters, type AnalysisMode, type FiltersState, type ImportedFileMeta, type IndustryRow, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
 import { clearPersistedState, loadPersistedState, savePersistedState } from '../shared/lib/storage';
 import { parseLogFile } from '../features/import/logParser';
@@ -12,6 +12,8 @@ import { AuthGate } from './AuthGate';
 import { totalIndustryTraffic } from '../features/analytics/industrySelectors';
 import { emptyIndustryFilters, type IndustryFiltersState } from '../features/dashboard/industry/IndustryDashboard';
 import { emptyIndustryPrRadarState, type IndustryPrRadarState } from '../features/dashboard/industry/IndustryPrRadar';
+import { NeraLensAiChat } from '../features/ai/NeraLensAiChat';
+import { loadNeraLensAiConfig, saveNeraLensAiConfig, type NeraLensAiConfig } from '../features/ai/neraLensAi';
 
 type Screen = 'overview' | 'pages' | 'sitemap' | 'pr' | 'settings';
 
@@ -71,6 +73,8 @@ export function App() {
   const [filters, setFilters] = useState<FiltersState>(() => normalizeFilters(readUrlState().filters));
   const [industryFilters, setIndustryFilters] = useState<IndustryFiltersState>(emptyIndustryFilters);
   const [industryPrRadarState, setIndustryPrRadarState] = useState<IndustryPrRadarState>(emptyIndustryPrRadarState);
+  const [aiConfig, setAiConfig] = useState<NeraLensAiConfig>(() => loadNeraLensAiConfig());
+  const [aiChatOpen, setAiChatOpen] = useState(false);
   const [activeScreen, setActiveScreen] = useState<Screen>(() => {
     const urlScreen = readUrlState().screen;
     if (isScreen(urlScreen)) return urlScreen;
@@ -112,6 +116,10 @@ export function App() {
     localStorage.setItem(activeScreenKey, activeScreen);
     writeUrlState(activeScreen, filters);
   }, [activeScreen, filters]);
+
+  useEffect(() => {
+    saveNeraLensAiConfig(aiConfig);
+  }, [aiConfig]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -234,6 +242,8 @@ export function App() {
       onAddIndustry={() => pickFilesForMode('industry')}
       onClearLogs={() => void resetAll()}
       onServicepipeLogsChange={setServicepipeLogs}
+      aiConfig={aiConfig}
+      onAiConfigChange={setAiConfig}
       onAnalysisModeChange={(mode) => {
         setAnalysisMode(mode);
         setActiveScreen('overview');
@@ -272,6 +282,14 @@ export function App() {
           {analysisMode === 'industry' && <button className={`nav-link ${activeScreen === 'pr' ? 'active' : ''}`} onClick={() => setActiveScreen('pr')}><Newspaper className="h-4 w-4" />PR-радар</button>}
           <button className={`nav-link ${activeScreen === 'settings' ? 'active' : ''}`} onClick={() => setActiveScreen('settings')}><SlidersHorizontal className="h-4 w-4" />Настройки</button>
         </nav>
+        {analysisMode === 'industry' && (
+          <div className="sidebar-bottom">
+            <button className="ai-sidebar-button" type="button" onClick={() => setAiChatOpen(true)}>
+              <span><Sparkles className="h-4 w-4" /></span>
+              <strong>NeraLens AI</strong>
+            </button>
+          </div>
+        )}
       </aside>
       <main className="workspace">
         <header className="topbar">
@@ -286,6 +304,16 @@ export function App() {
         {isParsing && <div className="panel mb-3 p-3 text-sm font-bold text-aqua">Обработка...</div>}
         {content}
       </main>
+      <NeraLensAiChat
+        open={aiChatOpen}
+        rows={industryRows}
+        config={aiConfig}
+        onClose={() => setAiChatOpen(false)}
+        onOpenSettings={() => {
+          setAiChatOpen(false);
+          setActiveScreen('settings');
+        }}
+      />
       </div>
     </AuthGate>
   );

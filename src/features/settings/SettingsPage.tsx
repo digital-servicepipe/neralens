@@ -1,9 +1,10 @@
-import { Bot, Database, Factory, SlidersHorizontal, Trash2, Upload } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { Bot, Database, Factory, KeyRound, SlidersHorizontal, Sparkles, Trash2, Upload } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { totalRequestCount } from '../analytics/selectors';
 import { totalIndustryTraffic } from '../analytics/industrySelectors';
 import { formatNumber } from '../../shared/lib/format';
 import type { AnalysisMode, ImportedFileMeta, IndustryRow, LogRow } from '../../shared/types/domain';
+import { defaultNeraLensAiModel, neraLensAiEndpoint, neraLensAiUpstreamEndpoint, type NeraLensAiConfig } from '../ai/neraLensAi';
 
 interface SettingsPageProps {
   analysisMode: AnalysisMode;
@@ -16,9 +17,11 @@ interface SettingsPageProps {
   onClearLogs: () => void;
   onServicepipeLogsChange: (value: boolean) => void;
   onAnalysisModeChange: (value: AnalysisMode) => void;
+  aiConfig: NeraLensAiConfig;
+  onAiConfigChange: React.Dispatch<React.SetStateAction<NeraLensAiConfig>>;
 }
 
-export function SettingsPage({ analysisMode, rows, industryRows, files, servicepipeLogs, onAddLogs, onAddIndustry, onClearLogs, onServicepipeLogsChange, onAnalysisModeChange }: SettingsPageProps) {
+export function SettingsPage({ analysisMode, rows, industryRows, files, servicepipeLogs, onAddLogs, onAddIndustry, onClearLogs, onServicepipeLogsChange, onAnalysisModeChange, aiConfig, onAiConfigChange }: SettingsPageProps) {
   const dates = rows.map((row) => row.date).filter((date) => date !== 'Unknown').sort();
   const industryDates = industryRows.map((row) => row.date).filter((date) => date !== 'Unknown').sort();
   const period = dates.length ? `${formatDate(dates[0])} - ${formatDate(dates.at(-1) ?? dates[0])}` : 'Не определён';
@@ -29,6 +32,12 @@ export function SettingsPage({ analysisMode, rows, industryRows, files, servicep
   const totalIndustryRequests = totalIndustryTraffic(industryRows);
   const logFiles = useMemo(() => files.filter((file) => file.kind === 'logs'), [files]);
   const industryFiles = useMemo(() => files.filter((file) => file.kind === 'industry'), [files]);
+  const [aiDraft, setAiDraft] = useState(aiConfig);
+  const aiDraftChanged = aiDraft.apiKey !== aiConfig.apiKey || aiDraft.model !== aiConfig.model;
+
+  useEffect(() => {
+    setAiDraft(aiConfig);
+  }, [aiConfig]);
 
   return (
     <div className="settings-page">
@@ -73,6 +82,45 @@ export function SettingsPage({ analysisMode, rows, industryRows, files, servicep
           </div>
         </div>
       </section>
+
+      {analysisMode === 'industry' && (
+        <section className="panel settings-options-card settings-ai-card">
+          <CardHead icon={<Sparkles className="h-5 w-5" />} title="NeraLens AI" subtitle="Запросы отправляются через Neurly. API-ключ хранится только в localStorage этого браузера." />
+          <div className="settings-ai-grid">
+            <label className="settings-field">
+              <span><KeyRound className="h-4 w-4" />API-ключ Neurly</span>
+              <input
+                type="password"
+                value={aiDraft.apiKey}
+                placeholder="Введите ключ"
+                autoComplete="off"
+                onChange={(event) => setAiDraft((current) => ({ ...current, apiKey: event.currentTarget.value }))}
+              />
+            </label>
+            <label className="settings-field">
+              <span><Bot className="h-4 w-4" />Модель</span>
+              <input
+                type="text"
+                value={aiDraft.model}
+                placeholder={defaultNeraLensAiModel}
+                onChange={(event) => setAiDraft((current) => ({ ...current, model: event.currentTarget.value }))}
+                onBlur={() => setAiDraft((current) => ({ ...current, model: current.model.trim() || defaultNeraLensAiModel }))}
+              />
+            </label>
+          </div>
+          <div className="settings-ai-footer">
+            <p className="settings-ai-note">Endpoint приложения: {neraLensAiEndpoint}. Neurly: {neraLensAiUpstreamEndpoint}</p>
+            <button
+              className="primary-button"
+              type="button"
+              disabled={!aiDraftChanged}
+              onClick={() => onAiConfigChange({ apiKey: aiDraft.apiKey, model: aiDraft.model.trim() || defaultNeraLensAiModel })}
+            >
+              Сохранить локально
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="panel settings-data-library">
         <CardHead icon={<Database className="h-5 w-5" />} title="Файлы для отчётов" subtitle="Можно загрузить оба типа данных и спокойно переключаться между дашбордами." />

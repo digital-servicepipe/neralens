@@ -11,6 +11,7 @@ import { SiteMapBoard } from '../sitemap-board/SiteMapBoard';
 import type { AnalysisMode, FiltersState, ImportedFileMeta, IndustryRow, LogRow, TextFilePayload } from '../../shared/types/domain';
 import type { useAnalytics } from '../analytics/useAnalytics';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
+import type { NeraLensAiConfig } from '../ai/neraLensAi';
 
 type Analytics = ReturnType<typeof useAnalytics>;
 type Screen = 'overview' | 'pages' | 'sitemap' | 'pr' | 'settings';
@@ -40,6 +41,8 @@ interface DashboardPageProps {
   onClearLogs: () => void;
   onServicepipeLogsChange: (value: boolean) => void;
   onAnalysisModeChange: (value: AnalysisMode) => void;
+  aiConfig: NeraLensAiConfig;
+  onAiConfigChange: React.Dispatch<React.SetStateAction<NeraLensAiConfig>>;
 }
 
 export function DashboardPage(props: DashboardPageProps) {
@@ -61,6 +64,8 @@ export function DashboardPage(props: DashboardPageProps) {
         onClearLogs={props.onClearLogs}
         onServicepipeLogsChange={props.onServicepipeLogsChange}
         onAnalysisModeChange={props.onAnalysisModeChange}
+        aiConfig={props.aiConfig}
+        onAiConfigChange={props.onAiConfigChange}
       />
     );
   }

@@ -3,7 +3,7 @@ import { CalendarDays, ChevronDown, Factory, Gauge, Search, ShieldAlert, Target,
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
 import type { IndustryRow } from '../../../shared/types/domain';
-import { relativePercent, totalIndustryTraffic, weightedAverage } from '../../analytics/industrySelectors';
+import { totalIndustryTraffic, weightedAverage } from '../../analytics/industrySelectors';
 import { industryAttackMetricKeys, industryThreatColors, industryThreatLabels, type IndustryThreatMetricKey } from './industryThreats';
 import { ChartExportMenu, ExportableChart } from '../charts/ChartExport';
 
@@ -218,7 +218,7 @@ export function IndustryPrRadar({
           </div>
 
           <div className="pr-method-note">
-            <strong>Как читать:</strong> доли атак считаются внутри вредоносного бот-трафика. Объёмы с ≈ считаются по исходной доле от общего трафика. Разница с прошлым периодом указана в процентных пунктах.
+            <strong>Как читать:</strong> доли берутся из загруженного файла и усредняются с весом по all_trafic. Объёмы с ≈ считаются как трафик отрасли × доля / 100. Разница с прошлым периодом указана в процентных пунктах.
           </div>
         </section>
       )}
@@ -266,11 +266,10 @@ function buildMetricDynamic(currentRows: IndustryRow[], previousRows: IndustryRo
   });
   const points = Array.from(byDate.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, dayRows]) => ({ date, value: relativePercent(dayRows, key, 'badBotsPercent') }));
+    .map(([date, dayRows]) => ({ date, value: weightedAverage(dayRows, key) }));
   const peak = points.reduce((best, point) => point.value > best.value ? point : best, points[0] ?? { date: '', value: 0 });
-  const current = relativePercent(currentRows, key, 'badBotsPercent');
-  const previous = relativePercent(previousRows, key, 'badBotsPercent');
-  const rawCurrent = weightedAverage(currentRows, key);
+  const current = weightedAverage(currentRows, key);
+  const previous = weightedAverage(previousRows, key);
 
   return {
     key,
@@ -278,7 +277,7 @@ function buildMetricDynamic(currentRows: IndustryRow[], previousRows: IndustryRo
     previous,
     current,
     delta: current - previous,
-    count: estimateCount(traffic, rawCurrent),
+    count: estimateCount(traffic, current),
     peakDate: peak.date,
     peakValue: peak.value,
   };
@@ -288,8 +287,8 @@ function buildNotes(industry: string, traffic: number, lead: MetricDynamic, lead
   const sourceText = automaticMetric ? `самая заметная из ${metricCount} типов атак` : 'выбранная атака';
   const rankText = leadRank === 1 ? 'на первом месте среди типов атак' : `на ${leadRank}-м месте среди типов атак`;
   const notes = [
-    `${industry}, ${compareWindow.currentLabel}: ${lead.label.toLowerCase()} — ${sourceText}. По доле внутри вредоносных ботов это ${rankText} в выбранной отрасли.`,
-    `Средняя доля за период — ${formatPercent(lead.current)} от вредоносного бот-трафика. Расчётный объём — ≈ ${formatCompactNumber(lead.count)} из ${formatCompactNumber(traffic)} запросов.`,
+    `${industry}, ${compareWindow.currentLabel}: ${lead.label.toLowerCase()} — ${sourceText}. По доле в исходных данных это ${rankText} в выбранной отрасли.`,
+    `Средняя доля за период — ${formatPercent(lead.current)}. Расчётный объём — ≈ ${formatCompactNumber(lead.count)} из ${formatCompactNumber(traffic)} запросов.`,
   ];
   if (compareWindow.hasPrevious) {
     const direction = lead.delta > 0 ? 'выросла' : lead.delta < 0 ? 'снизилась' : 'не изменилась';

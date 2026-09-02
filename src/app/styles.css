@@ -3437,15 +3437,21 @@ body {
 }
 
 .industry-dashboard .industry-table-wrap {
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--ui-color-line);
   border-radius: var(--ui-radius-card);
 }
 
 .industry-dashboard .industry-table {
   width: 100%;
-  min-width: 0;
+  min-width: 1180px;
   table-layout: fixed;
+}
+
+.industry-dashboard .industry-table th:first-child,
+.industry-dashboard .industry-table td:first-child {
+  width: 150px;
 }
 
 .industry-dashboard .industry-table th {
@@ -3469,32 +3475,42 @@ body {
   font-size: 13px;
   vertical-align: top;
   overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .industry-dashboard .industry-table .numeric-cell {
   color: var(--ui-color-text);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .industry-dashboard .industry-metric-value {
   display: grid;
   gap: 2px;
   justify-items: start;
+  min-width: 0;
 }
 
 .industry-dashboard .industry-metric-value strong {
+  max-width: 100%;
+  overflow: hidden;
   color: var(--ui-color-text);
   font-size: 13px;
   line-height: 17px;
   font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .industry-dashboard .industry-metric-value small {
+  max-width: 100%;
+  overflow: hidden;
   color: var(--ui-color-text-muted);
   font-size: 11px;
   line-height: 14px;
   font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .industry-dashboard .industry-sort-button {

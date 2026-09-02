@@ -65,21 +65,6 @@ export function weightedAverage(rows: IndustryRow[], key: keyof IndustryRow): nu
   return totals.weight ? totals.sum / totals.weight : 0;
 }
 
-export function relativePercent(rows: IndustryRow[], key: keyof IndustryRow, basisKey: keyof IndustryRow): number {
-  const totals = rows.reduce(
-    (acc, row) => {
-      const weight = row.allTrafic || 0;
-      const value = typeof row[key] === 'number' ? row[key] : 0;
-      const basis = typeof row[basisKey] === 'number' ? row[basisKey] : 0;
-      acc.value += value * weight;
-      acc.basis += basis * weight;
-      return acc;
-    },
-    { value: 0, basis: 0 },
-  );
-  return totals.basis ? (totals.value / totals.basis) * 100 : 0;
-}
-
 export function totalIndustryTraffic(rows: IndustryRow[]): number {
   return rows.reduce((sum, row) => sum + row.allTrafic, 0);
 }
@@ -139,11 +124,24 @@ export function buildIndustryDailySeries(rows: IndustryRow[]) {
       label: new Date(`${date}T00:00:00`).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
       traffic: totalIndustryTraffic(dayRows),
       badBotsPercent: weightedAverage(dayRows, 'badBotsPercent'),
-      apiPercent: relativePercent(dayRows, 'apiPercent', 'badBotsPercent'),
-      parsersPercent: relativePercent(dayRows, 'parsersPercent', 'badBotsPercent'),
-      credsPercent: relativePercent(dayRows, 'credsPercent', 'badBotsPercent'),
-      scanerPercent: relativePercent(dayRows, 'scanerPercent', 'badBotsPercent'),
-      paymentsCrackPercent: relativePercent(dayRows, 'paymentsCrackPercent', 'badBotsPercent'),
-      smsPushBomberPercent: relativePercent(dayRows, 'smsPushBomberPercent', 'badBotsPercent'),
+      apiPercent: weightedAverage(dayRows, 'apiPercent'),
+      apiPercentCount: estimatePercentCount(dayRows, 'apiPercent'),
+      parsersPercent: weightedAverage(dayRows, 'parsersPercent'),
+      parsersPercentCount: estimatePercentCount(dayRows, 'parsersPercent'),
+      credsPercent: weightedAverage(dayRows, 'credsPercent'),
+      credsPercentCount: estimatePercentCount(dayRows, 'credsPercent'),
+      scanerPercent: weightedAverage(dayRows, 'scanerPercent'),
+      scanerPercentCount: estimatePercentCount(dayRows, 'scanerPercent'),
+      paymentsCrackPercent: weightedAverage(dayRows, 'paymentsCrackPercent'),
+      paymentsCrackPercentCount: estimatePercentCount(dayRows, 'paymentsCrackPercent'),
+      smsPushBomberPercent: weightedAverage(dayRows, 'smsPushBomberPercent'),
+      smsPushBomberPercentCount: estimatePercentCount(dayRows, 'smsPushBomberPercent'),
     }));
+}
+
+function estimatePercentCount(rows: IndustryRow[], key: keyof IndustryRow) {
+  return Math.round(rows.reduce((sum, row) => {
+    const value = typeof row[key] === 'number' ? row[key] : 0;
+    return sum + (row.allTrafic * value) / 100;
+  }, 0));
 }

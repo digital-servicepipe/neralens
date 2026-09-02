@@ -1215,6 +1215,72 @@ body {
   gap: var(--ui-space-2);
 }
 
+.exportable-chart {
+  min-width: 0;
+}
+
+.chart-export-menu {
+  position: relative;
+  align-self: flex-start;
+}
+
+.chart-export-trigger {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--ui-color-line);
+  border-radius: var(--ui-radius-control);
+  background: rgba(255,255,255,.035);
+  color: var(--ui-color-text-secondary);
+  box-shadow: inset 0 1px rgba(255,255,255,.04);
+  transition: border-color .16s var(--ease-out-strong), background-color .16s var(--ease-out-strong), color .16s var(--ease-out-strong);
+}
+
+.chart-export-trigger:hover,
+.chart-export-menu:focus-within .chart-export-trigger {
+  border-color: rgba(45,212,191,.36);
+  background: rgba(45,212,191,.09);
+  color: var(--ui-color-text);
+}
+
+.chart-export-options {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 20;
+  display: none;
+  min-width: 92px;
+  overflow: hidden;
+  border: 1px solid var(--ui-color-line-strong);
+  border-radius: var(--ui-radius-control);
+  background: #242628;
+  box-shadow: 0 16px 32px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.05);
+}
+
+.chart-export-menu:hover .chart-export-options,
+.chart-export-menu:focus-within .chart-export-options {
+  display: grid;
+}
+
+.chart-export-options button {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--ui-color-text-secondary);
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.chart-export-options button:hover,
+.chart-export-options button:focus-visible {
+  background: rgba(45,212,191,.1);
+  color: var(--ui-color-text);
+}
+
 .chart-mode-toggle {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(74px, 1fr));
@@ -2992,6 +3058,10 @@ body {
   gap: var(--ui-space-3);
 }
 
+.settings-field-wide {
+  grid-column: 1 / -1;
+}
+
 .settings-field {
   display: grid;
   gap: var(--ui-space-2);
@@ -3756,6 +3826,19 @@ body {
   font-size: 15px;
   line-height: 20px;
   font-weight: 800;
+}
+
+.industry-pr-page .pr-section-head {
+  display: flex;
+  min-height: 36px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  margin-bottom: var(--ui-space-3);
+}
+
+.industry-pr-page .pr-section-head h3 {
+  margin-bottom: 0;
 }
 
 .industry-pr-page .pr-chart-note {

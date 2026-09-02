@@ -4,7 +4,7 @@ import { totalRequestCount } from '../analytics/selectors';
 import { totalIndustryTraffic } from '../analytics/industrySelectors';
 import { formatNumber } from '../../shared/lib/format';
 import type { AnalysisMode, ImportedFileMeta, IndustryRow, LogRow } from '../../shared/types/domain';
-import { defaultNeraLensAiModel, neraLensAiEndpoint, neraLensAiUpstreamEndpoint, type NeraLensAiConfig } from '../ai/neraLensAi';
+import { defaultNeraLensAiModel, type NeraLensAiConfig } from '../ai/neraLensAi';
 
 interface SettingsPageProps {
   analysisMode: AnalysisMode;
@@ -109,7 +109,7 @@ export function SettingsPage({ analysisMode, rows, industryRows, files, servicep
             </label>
           </div>
           <div className="settings-ai-footer">
-            <p className="settings-ai-note">Endpoint приложения: {neraLensAiEndpoint}. Neurly: {neraLensAiUpstreamEndpoint}</p>
+            <p className="settings-ai-note">Ключ хранится только в этом браузере.</p>
             <button
               className="primary-button"
               type="button"

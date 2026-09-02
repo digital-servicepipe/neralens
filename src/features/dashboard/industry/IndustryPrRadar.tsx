@@ -3,8 +3,9 @@ import { CalendarDays, ChevronDown, Factory, Gauge, Search, ShieldAlert, Target,
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
 import type { IndustryRow } from '../../../shared/types/domain';
-import { totalIndustryTraffic, weightedAverage } from '../../analytics/industrySelectors';
+import { relativePercent, totalIndustryTraffic, weightedAverage } from '../../analytics/industrySelectors';
 import { industryAttackMetricKeys, industryThreatColors, industryThreatLabels, type IndustryThreatMetricKey } from './industryThreats';
+import { ChartExportMenu, ExportableChart } from '../charts/ChartExport';
 
 const grid = 'rgba(255,255,255,.08)';
 const axis = { fill: 'var(--fk-muted)', fontSize: 12 };
@@ -191,28 +192,33 @@ export function IndustryPrRadar({
           </div>
 
           <div className="pr-section">
-            <h3>{compareWindow.hasPrevious ? 'Атаки: текущий и прошлый период' : 'Атаки за выбранный период'}</h3>
+            <div className="pr-section-head">
+              <h3>{compareWindow.hasPrevious ? 'Атаки: текущий и прошлый период' : 'Атаки за выбранный период'}</h3>
+              <ChartExportMenu fileName="nera-lens-pr-attacks" />
+            </div>
             {compareWindow.hasPrevious && <p className="pr-chart-note">Цвет закреплён за типом угрозы: насыщенная полоса — текущий период, приглушённая — прошлый период.</p>}
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analysis.chartData} layout="vertical" margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
-                <CartesianGrid stroke={grid} horizontal={false} />
-                <XAxis type="number" tick={axis} axisLine={false} tickFormatter={(value) => `${value}%`} />
-                <YAxis dataKey="label" type="category" tick={axis} tickLine={false} width={170} interval={0} />
-                <Tooltip content={<PrTooltip hasPrevious={compareWindow.hasPrevious} />} cursor={{ fill: 'rgba(255,255,255,.06)' }} />
-                {compareWindow.hasPrevious && (
-                  <Bar dataKey="previous" name="Прошлый период" radius={[0, 7, 7, 0]} isAnimationActive={false}>
-                    {analysis.chartData.map((item) => <Cell key={item.key} fill={industryThreatColors[item.key]} fillOpacity={0.28} />)}
+            <ExportableChart fileName="nera-lens-pr-attacks">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analysis.chartData} layout="vertical" margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke={grid} horizontal={false} />
+                  <XAxis type="number" tick={axis} axisLine={false} tickFormatter={(value) => `${value}%`} />
+                  <YAxis dataKey="label" type="category" tick={axis} tickLine={false} width={170} interval={0} />
+                  <Tooltip content={<PrTooltip hasPrevious={compareWindow.hasPrevious} />} cursor={{ fill: 'rgba(255,255,255,.06)' }} />
+                  {compareWindow.hasPrevious && (
+                    <Bar dataKey="previous" name="Прошлый период" radius={[0, 7, 7, 0]} isAnimationActive={false}>
+                      {analysis.chartData.map((item) => <Cell key={item.key} fill={industryThreatColors[item.key]} fillOpacity={0.28} />)}
+                    </Bar>
+                  )}
+                  <Bar dataKey="current" name="Текущий период" radius={[0, 7, 7, 0]} isAnimationActive={false}>
+                    {analysis.chartData.map((item) => <Cell key={item.key} fill={industryThreatColors[item.key]} />)}
                   </Bar>
-                )}
-                <Bar dataKey="current" name="Текущий период" radius={[0, 7, 7, 0]} isAnimationActive={false}>
-                  {analysis.chartData.map((item) => <Cell key={item.key} fill={industryThreatColors[item.key]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                </BarChart>
+              </ResponsiveContainer>
+            </ExportableChart>
           </div>
 
           <div className="pr-method-note">
-            <strong>Как читать:</strong> доли усредняются с весом по all_trafic внутри выбранной отрасли. Объёмы с ≈ считаются как трафик отрасли × доля / 100. Разница с прошлым периодом указана в процентных пунктах.
+            <strong>Как читать:</strong> доли атак считаются внутри вредоносного бот-трафика. Объёмы с ≈ считаются по исходной доле от общего трафика. Разница с прошлым периодом указана в процентных пунктах.
           </div>
         </section>
       )}
@@ -260,10 +266,11 @@ function buildMetricDynamic(currentRows: IndustryRow[], previousRows: IndustryRo
   });
   const points = Array.from(byDate.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, dayRows]) => ({ date, value: weightedAverage(dayRows, key) }));
+    .map(([date, dayRows]) => ({ date, value: relativePercent(dayRows, key, 'badBotsPercent') }));
   const peak = points.reduce((best, point) => point.value > best.value ? point : best, points[0] ?? { date: '', value: 0 });
-  const current = weightedAverage(currentRows, key);
-  const previous = weightedAverage(previousRows, key);
+  const current = relativePercent(currentRows, key, 'badBotsPercent');
+  const previous = relativePercent(previousRows, key, 'badBotsPercent');
+  const rawCurrent = weightedAverage(currentRows, key);
 
   return {
     key,
@@ -271,7 +278,7 @@ function buildMetricDynamic(currentRows: IndustryRow[], previousRows: IndustryRo
     previous,
     current,
     delta: current - previous,
-    count: estimateCount(traffic, current),
+    count: estimateCount(traffic, rawCurrent),
     peakDate: peak.date,
     peakValue: peak.value,
   };
@@ -281,8 +288,8 @@ function buildNotes(industry: string, traffic: number, lead: MetricDynamic, lead
   const sourceText = automaticMetric ? `самая заметная из ${metricCount} типов атак` : 'выбранная атака';
   const rankText = leadRank === 1 ? 'на первом месте среди типов атак' : `на ${leadRank}-м месте среди типов атак`;
   const notes = [
-    `${industry}, ${compareWindow.currentLabel}: ${lead.label.toLowerCase()} — ${sourceText}. По доле в трафике это ${rankText} в выбранной отрасли.`,
-    `Средняя доля за период — ${formatPercent(lead.current)} от общего трафика. Расчётный объём — ≈ ${formatCompactNumber(lead.count)} из ${formatCompactNumber(traffic)} запросов.`,
+    `${industry}, ${compareWindow.currentLabel}: ${lead.label.toLowerCase()} — ${sourceText}. По доле внутри вредоносных ботов это ${rankText} в выбранной отрасли.`,
+    `Средняя доля за период — ${formatPercent(lead.current)} от вредоносного бот-трафика. Расчётный объём — ≈ ${formatCompactNumber(lead.count)} из ${formatCompactNumber(traffic)} запросов.`,
   ];
   if (compareWindow.hasPrevious) {
     const direction = lead.delta > 0 ? 'выросла' : lead.delta < 0 ? 'снизилась' : 'не изменилась';

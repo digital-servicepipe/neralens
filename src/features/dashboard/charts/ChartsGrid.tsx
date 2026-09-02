@@ -7,6 +7,7 @@ import { formatNumber, formatPercent, truncateMiddle } from '../../../shared/lib
 import type { useAnalytics } from '../../analytics/useAnalytics';
 import { requestCountFor } from '../../analytics/selectors';
 import type { AgentGroup, LogRow } from '../../../shared/types/domain';
+import { ChartExportMenu, ExportableChart, chartExportFileName } from './ChartExport';
 
 type Analytics = ReturnType<typeof useAnalytics>;
 type DailyChartMode = 'groups' | 'ua';
@@ -108,34 +109,44 @@ export function ChartsGrid({ analytics }: { analytics: Analytics }) {
           title={`Запросы ${timeGrainLabel}`}
           subtitle={dailySubtitle}
           bodyClassName="height-chart"
-          action={<DailyChartControls mode={dailyMode} grain={timeGrain} onModeChange={setDailyMode} onGrainChange={setTimeGrain} />}
+          action={
+            <DailyChartControls
+              mode={dailyMode}
+              grain={timeGrain}
+              exportName={`nera-lens-requests-${timeGrain}`}
+              onModeChange={setDailyMode}
+              onGrainChange={setTimeGrain}
+            />
+          }
         >
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={dailyData} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
-              <defs>
+          <ExportableChart fileName={`nera-lens-requests-${timeGrain}`}>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={dailyData} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
+                <defs>
+                  {dailyKeys.map((key) => {
+                    const color = getDailySeriesColor(key, dailyMode, agentGroupByName[key]);
+                    return (
+                    <linearGradient key={key} id={`daily-${safeGradientId(key)}`} x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="5%" stopColor={color} stopOpacity={0.34} />
+                      <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                    </linearGradient>
+                    );
+                  })}
+                </defs>
+                <CartesianGrid stroke={grid} vertical={false} />
+                <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={{ stroke: grid }} />
+                <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip content={<TooltipBox />} cursor={chartLineCursor} />
                 {dailyKeys.map((key) => {
                   const color = getDailySeriesColor(key, dailyMode, agentGroupByName[key]);
+                  const name = dailyMode === 'groups' ? agentGroupLabels[key as AgentGroup] : truncateMiddle(key, 24);
                   return (
-                  <linearGradient key={key} id={`daily-${safeGradientId(key)}`} x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.34} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                  </linearGradient>
+                    <Area key={key} dataKey={key} name={name} type="monotone" stroke={color} fill={`url(#daily-${safeGradientId(key)})`} strokeWidth={2.25} isAnimationActive={false} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                   );
                 })}
-              </defs>
-              <CartesianGrid stroke={grid} vertical={false} />
-              <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={{ stroke: grid }} />
-              <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} />
-              <Tooltip content={<TooltipBox />} cursor={chartLineCursor} />
-              {dailyKeys.map((key) => {
-                const color = getDailySeriesColor(key, dailyMode, agentGroupByName[key]);
-                const name = dailyMode === 'groups' ? agentGroupLabels[key as AgentGroup] : truncateMiddle(key, 24);
-                return (
-                  <Area key={key} dataKey={key} name={name} type="monotone" stroke={color} fill={`url(#daily-${safeGradientId(key)})`} strokeWidth={2.25} isAnimationActive={false} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-                );
-              })}
-            </AreaChart>
-          </ResponsiveContainer>
+              </AreaChart>
+            </ResponsiveContainer>
+          </ExportableChart>
         </Panel>
         <SmallBar title="Разделы сайта" subtitle="Топ-10 разделов по количеству запросов" data={sectionBars} height={320} yAxisWidth={142} showAllLabels />
       </div>
@@ -151,11 +162,13 @@ export function ChartsGrid({ analytics }: { analytics: Analytics }) {
 function DailyChartControls({
   mode,
   grain,
+  exportName,
   onModeChange,
   onGrainChange,
 }: {
   mode: DailyChartMode;
   grain: TimeGrain;
+  exportName: string;
   onModeChange: (value: DailyChartMode) => void;
   onGrainChange: (value: TimeGrain) => void;
 }) {
@@ -163,6 +176,7 @@ function DailyChartControls({
     <div className="daily-chart-controls">
       <TimeGrainToggle value={grain} onChange={onGrainChange} />
       <DailyModeToggle value={mode} onChange={onModeChange} />
+      <ChartExportMenu fileName={exportName} />
     </div>
   );
 }
@@ -319,19 +333,23 @@ function YAxisTick({ x, y, payload }: any) {
 }
 
 function SmallBar({ title, subtitle, data, valueKey = 'count', height = 260, yAxisWidth = 118, showAllLabels = true }: { title: string; subtitle: string; data: Array<{ name: string; count: number; share?: number; color: string }>; valueKey?: string; height?: number; yAxisWidth?: number; showAllLabels?: boolean }) {
+  const fileName = chartExportFileName(title);
+
   return (
-    <Panel title={title} subtitle={subtitle}>
-      <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
-          <CartesianGrid stroke={grid} horizontal={false} />
-          <XAxis type="number" tick={axis} axisLine={false} allowDecimals={false} domain={[0, 'dataMax']} />
-          <YAxis dataKey="name" type="category" tick={<YAxisTick />} tickLine={false} width={yAxisWidth} interval={showAllLabels ? 0 : undefined} />
-          <Tooltip content={<TooltipBox />} cursor={chartBarCursor} />
-          <Bar dataKey={valueKey} name="Запросы" radius={[0, 8, 8, 0]} isAnimationActive={false}>
-            {data.map((item) => <Cell key={item.name} fill={item.color} />)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+    <Panel title={title} subtitle={subtitle} action={<ChartExportMenu fileName={fileName} />}>
+      <ExportableChart fileName={fileName}>
+        <ResponsiveContainer width="100%" height={height}>
+          <BarChart data={data} layout="vertical" margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke={grid} horizontal={false} />
+            <XAxis type="number" tick={axis} axisLine={false} allowDecimals={false} domain={[0, 'dataMax']} />
+            <YAxis dataKey="name" type="category" tick={<YAxisTick />} tickLine={false} width={yAxisWidth} interval={showAllLabels ? 0 : undefined} />
+            <Tooltip content={<TooltipBox />} cursor={chartBarCursor} />
+            <Bar dataKey={valueKey} name="Запросы" radius={[0, 8, 8, 0]} isAnimationActive={false}>
+              {data.map((item) => <Cell key={item.name} fill={item.color} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ExportableChart>
     </Panel>
   );
 }

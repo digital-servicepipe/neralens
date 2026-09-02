@@ -61,6 +61,11 @@ export function saveNeraLensAiConfig(config: NeraLensAiConfig) {
   }
 }
 
+function resolveNeraLensAiEndpoint() {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return neraLensAiEndpoint;
+  return neraLensAiUpstreamEndpoint;
+}
+
 export function buildIndustryAiContext(rows: IndustryRow[]) {
   return {
     source: 'NeraLens industry report',
@@ -102,22 +107,27 @@ export async function sendNeraLensAiMessage(config: NeraLensAiConfig, messages: 
   if (!prompt) throw new Error('Введите запрос.');
   if (!config.apiKey.trim()) throw new Error('Добавьте API-ключ в настройках.');
 
-  const response = await fetch(neraLensAiEndpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.apiKey.trim()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: config.model.trim() || defaultNeraLensAiModel,
-      messages: [
-        {
-          role: 'user',
-          content: JSON.stringify(buildIndustryAiUserPayload(prompt, rows)),
-        },
-      ],
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(resolveNeraLensAiEndpoint(), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.apiKey.trim()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model.trim() || defaultNeraLensAiModel,
+        messages: [
+          {
+            role: 'user',
+            content: JSON.stringify(buildIndustryAiUserPayload(prompt, rows)),
+          },
+        ],
+      }),
+    });
+  } catch {
+    throw new Error('Браузер не смог отправить запрос в Neurly. Для сайта neralens.ru нужно, чтобы Neurly разрешил CORS для этого домена.');
+  }
 
   if (!response.ok) {
     const text = await response.text().catch(() => '');

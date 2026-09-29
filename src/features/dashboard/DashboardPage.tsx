@@ -6,15 +6,14 @@ import { OverviewBottom } from './overview/OverviewBottom';
 import { PagesTable } from './tables/PagesTable';
 import { SettingsPage } from '../settings/SettingsPage';
 import { IndustryDashboard, type IndustryFiltersState } from './industry/IndustryDashboard';
-import { IndustryPrRadar, type IndustryPrRadarState } from './industry/IndustryPrRadar';
+import { IndustryReportPage } from './industry/IndustryReportPage';
 import { SiteMapBoard } from '../sitemap-board/SiteMapBoard';
 import type { AnalysisMode, FiltersState, ImportedFileMeta, IndustryRow, LogRow, TextFilePayload } from '../../shared/types/domain';
 import type { useAnalytics } from '../analytics/useAnalytics';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
-import type { NeraLensAiConfig } from '../ai/neraLensAi';
 
 type Analytics = ReturnType<typeof useAnalytics>;
-type Screen = 'overview' | 'pages' | 'sitemap' | 'pr' | 'settings';
+type Screen = 'overview' | 'pages' | 'sitemap' | 'industries' | 'settings';
 
 interface DashboardPageProps {
   screen: Screen;
@@ -30,10 +29,8 @@ interface DashboardPageProps {
   analytics: Analytics;
   analyticsPending: boolean;
   industryFilters: IndustryFiltersState;
-  industryPrRadarState: IndustryPrRadarState;
   onFiltersChange: React.Dispatch<React.SetStateAction<FiltersState>>;
   onIndustryFiltersChange: React.Dispatch<React.SetStateAction<IndustryFiltersState>>;
-  onIndustryPrRadarStateChange: React.Dispatch<React.SetStateAction<IndustryPrRadarState>>;
   onResetFilters: () => void;
   onPathSelect: (path: string) => void;
   onAddLogs: () => void;
@@ -41,8 +38,6 @@ interface DashboardPageProps {
   onClearLogs: () => void;
   onServicepipeLogsChange: (value: boolean) => void;
   onAnalysisModeChange: (value: AnalysisMode) => void;
-  aiConfig: NeraLensAiConfig;
-  onAiConfigChange: React.Dispatch<React.SetStateAction<NeraLensAiConfig>>;
 }
 
 export function DashboardPage(props: DashboardPageProps) {
@@ -64,14 +59,12 @@ export function DashboardPage(props: DashboardPageProps) {
         onClearLogs={props.onClearLogs}
         onServicepipeLogsChange={props.onServicepipeLogsChange}
         onAnalysisModeChange={props.onAnalysisModeChange}
-        aiConfig={props.aiConfig}
-        onAiConfigChange={props.onAiConfigChange}
       />
     );
   }
 
   if (props.analysisMode === 'industry') {
-    if (props.screen === 'pr') return <IndustryPrRadar rows={props.industryRows} state={props.industryPrRadarState} onStateChange={props.onIndustryPrRadarStateChange} />;
+    if (props.screen === 'industries') return <IndustryReportPage rows={props.industryRows} />;
     return <IndustryDashboard rows={props.industryRows} filters={props.industryFilters} onFiltersChange={props.onIndustryFiltersChange} />;
   }
 

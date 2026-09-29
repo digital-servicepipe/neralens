@@ -32,4 +32,12 @@ describe('industryParser', () => {
       'Banking,2026-07-01,1000,101,6,90,25,75,2,50,48,10,2,88,12,3,0.2,8,1,0.1',
     ].join('\n'))).rejects.toThrow('Строка 2: bad_bots_percent');
   });
+
+  it('rejects inconsistent 100-percent compositions instead of normalizing them', async () => {
+    const header = 'industry,date,all_trafic,bad_bots_percent,good_bots_percent,humans_percent,bots_percent,strong_bots_percent,mobile_bots_percent,desktop_bots_percent,unknown_bots_percent,data_centers_percent,api_percent,ru_percent,foreign_percent,parsers_percent,creds_percent,scaner_percent,payments_crack_percent,sms_push_bomber_percent';
+    await expect(parseIndustryText([
+      header,
+      'Banking,2026-07-01,1000,2,6,90,25,70,2,50,48,10,2,88,12,3,0.2,8,1,0.1',
+    ].join('\n'))).rejects.toThrow('bots_percent + strong_bots_percent должны составлять 100%');
+  });
 });

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp, CalendarDays, ChevronDown, ChevronsUpDown, Factory, RotateCcw, Search, ShieldAlert, SlidersHorizontal } from 'lucide-react';
 import { Panel } from '../../../shared/ui/Panel';
-import { formatCompactNumber, formatNumber, formatPercent } from '../../../shared/lib/format';
+import { formatCompactNumber, formatNumber, formatPercent, pluralIndustries } from '../../../shared/lib/format';
 import type { IndustryRow } from '../../../shared/types/domain';
 import { buildIndustryDailySeries, buildIndustrySummaries, totalIndustryTraffic, weightedAverage, type IndustrySummary } from '../../analytics/industrySelectors';
 import { industryAttackMetricKeys, industryAttackSeries, industryThreatColors, industryThreatLabels, type IndustryThreatMetricKey } from './industryThreats';
@@ -202,7 +202,7 @@ export function IndustryDashboard({
   ], 'totalTraffic'), [filteredRows]);
   const industryThreatTraffic = summaries
     .slice()
-    .sort((a, b) => b.totalTraffic - a.totalTraffic)
+    .sort((a, b) => b.badBotsPercent - a.badBotsPercent)
     .map((item) => ({
       name: item.industry,
       totalTraffic: item.totalTraffic,
@@ -210,8 +210,6 @@ export function IndustryDashboard({
       badBotsTraffic: estimateMetricCount(item.totalTraffic, item.badBotsPercent),
     }));
   const attackAxisTicks = useMemo(() => buildPercentTicks(attackMetrics.map((item) => item.value)), [attackMetrics]);
-  const botComplexityTicks = useMemo(() => buildPercentTicks(botComplexity.map((item) => item.value)), [botComplexity]);
-  const botDeviceTicks = useMemo(() => buildPercentTicks(botDevices.map((item) => item.value)), [botDevices]);
   const keyThreat = useMemo(() => buildKeyThreat(filteredRows, selectedThreatKeys), [filteredRows, selectedThreatKeys]);
   const keyIndustry = useMemo(() => buildKeyIndustry(summaries, selectedThreatKeys), [summaries, selectedThreatKeys]);
 
@@ -267,12 +265,28 @@ export function IndustryDashboard({
       </section>
 
       <section className="industry-detail-grid grid gap-3">
-        <IndustryBar title="Бот-трафик по категориям" subtitle="Доля обычных и продвинутых ботов от всего бот-трафика" data={botComplexity} height={190} ticks={botComplexityTicks} tooltipBasis="botTrafficShare" />
-        <IndustryBar title="Бот-трафик по устройствам" subtitle="Доля десктопных, мобильных и неизвестных устройств от всего бот-трафика" data={botDevices} height={220} ticks={botDeviceTicks} tooltipBasis="botTrafficShare" />
-        <IndustryBar title="Типы угроз" subtitle="Доли по угрозам из загруженного файла за выбранный период" data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="totalTraffic" />
+        <DonutPanel
+          title="Бот-трафик по категориям"
+          subtitle="Доля обычных и продвинутых ботов от всего бот-трафика"
+          data={botComplexity}
+          centerLabel="100%"
+          centerCaption="бот-трафика"
+        />
+        <DonutPanel
+          title="Бот-трафик по устройствам"
+          subtitle="Доля десктопных, мобильных и неизвестных устройств от всего бот-трафика"
+          data={botDevices}
+          centerLabel="100%"
+          centerCaption="бот-трафика"
+        />
         <DonutPanel title="География трафика" subtitle="Россия и зарубежный трафик от общего объёма за выбранный период" data={geoMetrics} />
-        <IndustryBar title="Дата-центры" subtitle="Доля трафика из дата-центров от общего объёма за выбранный период" data={dataCenterMetrics} height={130} ticks={buildPercentTicks(dataCenterMetrics.map((item) => item.value))} tooltipBasis="totalTraffic" />
-        <IndustryTable summaries={summaries} />
+        <IndustryBar className="industry-wide-chart" title="Типы угроз" subtitle="Доли по угрозам из загруженного файла за выбранный период" data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="totalTraffic" />
+        <TrafficShareDonutPanel
+          title="Дата-центры"
+          subtitle="Доля трафика из дата-центров внутри всего трафика за выбранный период"
+          metric={dataCenterMetrics[0]}
+          totalTraffic={totalTraffic}
+        />
       </section>
     </div>
   );
@@ -358,11 +372,13 @@ export function IndustryFilters({
   options,
   onChange,
   onReset,
+  showThreats = true,
 }: {
   filters: IndustryFiltersState;
   options: ReturnType<typeof buildIndustryFilterOptions>;
   onChange: React.Dispatch<React.SetStateAction<IndustryFiltersState>>;
   onReset: () => void;
+  showThreats?: boolean;
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const datePopoverRef = useRef<HTMLDivElement | null>(null);
@@ -380,7 +396,7 @@ export function IndustryFilters({
     () => options.industries.filter((industry) => industry.toLowerCase().includes(industryQuery.toLowerCase())),
     [industryQuery, options.industries],
   );
-  const activeCount = [filters.dateFrom || filters.dateTo, filters.industries.length, filters.threats.length].filter(Boolean).length;
+  const activeCount = [filters.dateFrom || filters.dateTo, filters.industries.length, showThreats ? filters.threats.length : 0].filter(Boolean).length;
 
   useEffect(() => {
     if (popover !== 'date') {
@@ -485,10 +501,10 @@ export function IndustryFilters({
           <span className="active-pill">{activeCount} активных</span>
         </div>
       </div>
-      <div className="filter-fields industry-filter-fields">
+      <div className={`filter-fields industry-filter-fields ${showThreats ? '' : 'without-threats'}`}>
         <FilterButton ref={setTriggerRef('date')} icon={<CalendarDays className="h-4 w-4" />} label="Дата" value={dateLabel(filters)} open={popover === 'date'} onClick={() => setPopover(popover === 'date' ? null : 'date')} />
         <FilterButton ref={setTriggerRef('industries')} icon={<Factory className="h-4 w-4" />} label="Отрасли" value={filters.industries.length ? `${filters.industries.length} выбрано` : 'Все'} badge={filters.industries.length || undefined} open={popover === 'industries'} onClick={() => setPopover(popover === 'industries' ? null : 'industries')} wide />
-        <FilterButton ref={setTriggerRef('threats')} icon={<ShieldAlert className="h-4 w-4" />} label="Угрозы" value={threatsLabel(filters.threats)} badge={filters.threats.length || undefined} open={popover === 'threats'} onClick={() => setPopover(popover === 'threats' ? null : 'threats')} wide />
+        {showThreats && <FilterButton ref={setTriggerRef('threats')} icon={<ShieldAlert className="h-4 w-4" />} label="Угрозы" value={threatsLabel(filters.threats)} badge={filters.threats.length || undefined} open={popover === 'threats'} onClick={() => setPopover(popover === 'threats' ? null : 'threats')} wide />}
         <button className="filter-reset" onClick={onReset}><RotateCcw className="h-4 w-4" />Сброс</button>
       </div>
 
@@ -538,7 +554,7 @@ export function IndustryFilters({
         </ListPopover>
       )}
 
-      {popover === 'threats' && (
+      {showThreats && popover === 'threats' && (
         <ListPopover className="with-footer" style={popoverStyle}>
           <div className="popover-scroll compact">
             {industryAttackSeries.map(([key, label, color]) => (
@@ -598,8 +614,8 @@ function PercentTooltip({ active, payload, label }: any) {
         <div key={`${item.name}-${index}`} className="chart-tooltip-row industry-tooltip-row">
           <span className="chart-tooltip-label"><i style={{ backgroundColor: item.stroke || item.fill }} />{item.name}</span>
           <span className="industry-tooltip-values">
-            <strong>≈ {formatCompactNumber(getDailyAttackCount(item))}</strong>
-            <small>Доля за день {formatPercent(Number(item.value))}</small>
+            <strong>{formatPercent(Number(item.value))}</strong>
+            <small>Расчётно ≈ {formatCompactNumber(getDailyAttackCount(item))}</small>
           </span>
         </div>
       ))}
@@ -638,7 +654,19 @@ function BarPercentTooltip({ active, payload, basis = 'totalTraffic' }: any & { 
   );
 }
 
-function DonutPanel({ title, subtitle, data }: { title: string; subtitle: string; data: MetricDatum[] }) {
+function DonutPanel({
+  title,
+  subtitle,
+  data,
+  centerLabel,
+  centerCaption,
+}: {
+  title: string;
+  subtitle: string;
+  data: MetricDatum[];
+  centerLabel?: string;
+  centerCaption?: string;
+}) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const fileName = chartExportFileName(title);
 
@@ -646,12 +674,32 @@ function DonutPanel({ title, subtitle, data }: { title: string; subtitle: string
     <Panel title={title} subtitle={subtitle} bodyClassName="industry-donut-body" action={<ChartExportMenu fileName={fileName} />}>
       <div className="industry-donut-chart">
         <ExportableChart fileName={fileName}>
-          <ResponsiveContainer width="100%" height={230}>
+          <ResponsiveContainer width="100%" height={168}>
             <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={92} paddingAngle={2} stroke="rgba(31,32,34,.92)" strokeWidth={2} isAnimationActive={false}>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={72}
+                startAngle={90}
+                endAngle={-270}
+                paddingAngle={0}
+                stroke="#1f2022"
+                strokeWidth={2}
+                isAnimationActive={false}
+              >
                 {data.map((item) => <Cell key={item.name} fill={item.color} />)}
               </Pie>
-              <Tooltip content={<DonutTooltip />} allowEscapeViewBox={{ x: false, y: false }} wrapperStyle={{ outline: 'none' }} />
+              {centerLabel && (
+                <g className="industry-donut-center" aria-hidden="true">
+                  <text x="50%" y="46%" dominantBaseline="middle" textAnchor="middle">{centerLabel}</text>
+                  {centerCaption && <text className="industry-donut-center-caption" x="50%" y="59%" dominantBaseline="middle" textAnchor="middle">{centerCaption}</text>}
+                </g>
+              )}
+              <Tooltip content={<DonutTooltip />} allowEscapeViewBox={{ x: true, y: true }} wrapperStyle={{ outline: 'none', zIndex: 30 }} />
             </PieChart>
           </ResponsiveContainer>
         </ExportableChart>
@@ -669,29 +717,140 @@ function DonutPanel({ title, subtitle, data }: { title: string; subtitle: string
   );
 }
 
+function TrafficShareDonutPanel({
+  title,
+  subtitle,
+  metric,
+  totalTraffic,
+}: {
+  title: string;
+  subtitle: string;
+  metric?: MetricDatum;
+  totalTraffic: number;
+}) {
+  const hasTraffic = totalTraffic > 0;
+  const share = hasTraffic ? Math.min(100, Math.max(0, metric?.value ?? 0)) : 0;
+  const dataCenterCount = estimateMetricCount(totalTraffic, share);
+  const fileName = chartExportFileName(title);
+  const wholeColor = brandColors.turquoise;
+  const dataCenterColor = metric?.color ?? industryMetricColors.dataCentersPercent;
+  const wholeArc = [{ name: 'Весь трафик', value: hasTraffic ? 100 : 0, count: totalTraffic, color: wholeColor, kind: 'whole' }];
+  const shareArc = [
+    { name: 'Из дата-центров', value: share, count: dataCenterCount, color: dataCenterColor, kind: 'share' },
+    { name: '', value: hasTraffic ? 100 - share : 0, hidden: true },
+  ];
+
+  return (
+    <Panel title={title} subtitle={subtitle} bodyClassName="industry-donut-body" action={<ChartExportMenu fileName={fileName} />}>
+      <div className="industry-donut-chart">
+        <ExportableChart fileName={fileName}>
+          <ResponsiveContainer width="100%" height={168}>
+            <PieChart>
+              <Pie
+                data={wholeArc}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={72}
+                startAngle={90}
+                endAngle={-270}
+                stroke="#1f2022"
+                strokeWidth={2}
+                fill={wholeColor}
+                isAnimationActive={false}
+              />
+              <Pie
+                data={shareArc}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={72}
+                startAngle={90}
+                endAngle={-270}
+                stroke="#1f2022"
+                strokeWidth={2}
+                isAnimationActive={false}
+              >
+                <Cell fill={dataCenterColor} />
+                <Cell fill="transparent" stroke="transparent" style={{ pointerEvents: 'none' }} />
+              </Pie>
+              <g className="industry-donut-center industry-donut-total" aria-hidden="true">
+                <text x="50%" y="46%" dominantBaseline="middle" textAnchor="middle">{formatCompactNumber(totalTraffic)}</text>
+                <text className="industry-donut-center-caption" x="50%" y="59%" dominantBaseline="middle" textAnchor="middle">общий трафик</text>
+              </g>
+              <Tooltip content={<TrafficShareDonutTooltip />} allowEscapeViewBox={{ x: true, y: true }} wrapperStyle={{ outline: 'none', zIndex: 30 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ExportableChart>
+      </div>
+      <div className="industry-donut-legend">
+        <div className="industry-donut-legend-row">
+          <span><i style={{ backgroundColor: wholeColor }} />Весь трафик</span>
+          <strong>{hasTraffic ? '100%' : '0%'}<small>{formatCompactNumber(totalTraffic)}</small></strong>
+        </div>
+        <div className="industry-donut-legend-row">
+          <span><i style={{ backgroundColor: dataCenterColor }} />Из дата-центров</span>
+          <strong>{formatPercent(share)}<small>≈ {formatCompactNumber(dataCenterCount)}</small></strong>
+        </div>
+        {!hasTraffic && <p className="settings-empty">Нет данных для отображения.</p>}
+      </div>
+    </Panel>
+  );
+}
+
+function TrafficShareDonutTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const item = payload.find((entry: any) => !entry.payload?.hidden);
+  if (!item) return null;
+  const datum = item.payload;
+  const isWhole = datum.kind === 'whole';
+
+  return (
+    <div className="chart-tooltip industry-metric-tooltip industry-donut-tooltip">
+      <p><i style={{ backgroundColor: datum.color }} />{datum.name}</p>
+      <div className="industry-threat-tooltip-row accent">
+        <span>Доля</span>
+        <strong>{formatPercent(Number(datum.value))}</strong>
+      </div>
+      <div className="industry-threat-tooltip-row">
+        <span>{isWhole ? 'Общий объём' : 'Расчётный объём'}</span>
+        <strong>{isWhole ? '' : '≈ '}{formatCompactNumber(Number(datum.count))}</strong>
+      </div>
+    </div>
+  );
+}
+
 function DonutTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const item = payload[0];
   const color = item.payload?.color || item.fill || brandColors.turquoise;
 
   return (
-    <div className="chart-tooltip industry-donut-tooltip">
-      <div className="chart-tooltip-row industry-tooltip-row">
-        <span className="chart-tooltip-label"><i style={{ backgroundColor: color }} />{item.name}</span>
-        <span className="industry-tooltip-values">
-          {typeof item.payload?.count === 'number' && <strong>≈ {formatCompactNumber(Number(item.payload.count))}</strong>}
-          <small>Доля {formatPercent(Number(item.value))}</small>
-        </span>
+    <div className="chart-tooltip industry-metric-tooltip industry-donut-tooltip">
+      <p><i style={{ backgroundColor: color }} />{item.name}</p>
+      <div className="industry-threat-tooltip-row accent">
+        <span>Доля</span>
+        <strong>{formatPercent(Number(item.value))}</strong>
       </div>
+      {typeof item.payload?.count === 'number' && (
+        <div className="industry-threat-tooltip-row">
+          <span>Расчётный объём</span>
+          <strong>≈ {formatCompactNumber(Number(item.payload.count))}</strong>
+        </div>
+      )}
     </div>
   );
 }
 
-function IndustryBar({ title, subtitle, data, height = 320, ticks, tooltipBasis }: { title: string; subtitle: string; data: MetricDatum[]; height?: number; ticks: number[]; tooltipBasis: MetricBasis }) {
+function IndustryBar({ title, subtitle, data, height = 320, ticks, tooltipBasis, className }: { title: string; subtitle: string; data: MetricDatum[]; height?: number; ticks: number[]; tooltipBasis: MetricBasis; className?: string }) {
   const domainMax = ticks.at(-1) ?? 100;
   const fileName = chartExportFileName(title);
   return (
-    <Panel title={title} subtitle={subtitle} action={<ChartExportMenu fileName={fileName} />}>
+    <Panel className={className} title={title} subtitle={subtitle} action={<ChartExportMenu fileName={fileName} />}>
       <ExportableChart fileName={fileName}>
         <ResponsiveContainer width="100%" height={height}>
           <BarChart data={data} layout="vertical" margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
@@ -713,24 +872,27 @@ function ThreatTrafficTooltip({ item }: { item: ThreatTrafficDatum }) {
   return (
     <div className="chart-tooltip industry-threat-tooltip industry-threat-hover">
       <p>{item.name}</p>
+      <div className="industry-threat-tooltip-row accent">
+        <span>Доля вредоносных ботов</span>
+        <strong>{formatPercent(item.badBotsPercent)}</strong>
+      </div>
+      <div className="industry-threat-tooltip-row">
+        <span>Расчётный объём</span>
+        <strong>≈ {formatCompactNumber(item.badBotsTraffic)}</strong>
+      </div>
       <div className="industry-threat-tooltip-row">
         <span>Общий трафик</span>
         <strong>{formatCompactNumber(item.totalTraffic)}</strong>
-      </div>
-      <div className="industry-threat-tooltip-row">
-        <span>Вредоносные боты</span>
-        <strong>≈ {formatCompactNumber(item.badBotsTraffic)} · {formatPercent(item.badBotsPercent)}</strong>
       </div>
     </div>
   );
 }
 
 function ThreatTrafficBar({ data }: { data: ThreatTrafficDatum[] }) {
-  const maxTraffic = Math.max(...data.map((item) => item.totalTraffic), 1);
   const [tooltip, setTooltip] = useState<{ item: ThreatTrafficDatum; x: number; y: number } | null>(null);
   const positionTooltip = (event: React.PointerEvent, item: ThreatTrafficDatum) => {
     const width = 300;
-    const height = 88;
+    const height = 116;
     const padding = 12;
     const x = Math.min(Math.max(event.clientX + 14, padding), window.innerWidth - width - padding);
     const preferredY = event.clientY - height / 2;
@@ -739,11 +901,10 @@ function ThreatTrafficBar({ data }: { data: ThreatTrafficDatum[] }) {
   };
 
   return (
-    <Panel title="Вредоносные боты от общего трафика по отраслям" subtitle="Доля вредоносных ботов по отраслям">
+    <Panel title="Вредоносные боты от общего трафика по отраслям" subtitle="Длина полосы — доля из файла; расчётный объём доступен при наведении">
       <div className={`industry-traffic-bars ${data.length > 10 ? 'scrollable' : ''} ${data.length <= 3 ? 'compact' : ''}`}>
         {data.map((item) => {
-          const totalWidth = `${Math.max(1.2, (item.totalTraffic / maxTraffic) * 100)}%`;
-          const badWidth = `${Math.max(0, item.badBotsPercent)}%`;
+          const badWidth = `${Math.min(100, Math.max(0, item.badBotsPercent))}%`;
           return (
             <div
               className="industry-traffic-row"
@@ -754,9 +915,10 @@ function ThreatTrafficBar({ data }: { data: ThreatTrafficDatum[] }) {
             >
               <span className="industry-traffic-label" title={item.name}>{item.name}</span>
               <div className="industry-traffic-bar-cell">
-                <div className="industry-traffic-track" style={{ width: totalWidth }}>
+                <div className="industry-traffic-track">
                   <span className="industry-traffic-segment bad" style={{ width: badWidth }} />
                 </div>
+                <strong className="industry-traffic-value">{formatPercent(item.badBotsPercent)}</strong>
               </div>
             </div>
           );
@@ -870,18 +1032,18 @@ function buildCalendarDays(month: Date) {
 type IndustrySortKey = 'industry' | 'totalTraffic' | 'humansPercent' | 'badBotsPercent' | 'goodBotsPercent' | 'apiPercent' | 'parsersPercent' | 'credsPercent' | 'scanerPercent' | 'paymentsCrackPercent' | 'smsPushBomberPercent';
 type IndustrySort = { key: IndustrySortKey; direction: 'asc' | 'desc' } | null;
 
-const industryTableColumns: Array<{ key: IndustrySortKey; label: string; render: (item: IndustrySummary) => ReactNode; numeric?: boolean }> = [
-  { key: 'industry', label: industryTableLabels.industry ?? industryFieldLabels.industry, render: (item) => item.industry },
-  { key: 'totalTraffic', label: industryTableLabels.totalTraffic ?? industryFieldLabels.allTrafic, render: (item) => formatNumber(item.totalTraffic), numeric: true },
-  { key: 'humansPercent', label: industryTableLabels.humansPercent ?? industryFieldLabels.humansPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.humansPercent} />, numeric: true },
-  { key: 'badBotsPercent', label: industryTableLabels.badBotsPercent ?? industryFieldLabels.badBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.badBotsPercent} />, numeric: true },
-  { key: 'goodBotsPercent', label: industryTableLabels.goodBotsPercent ?? industryFieldLabels.goodBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.goodBotsPercent} />, numeric: true },
-  { key: 'apiPercent', label: industryTableLabels.apiPercent ?? industryFieldLabels.apiPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.apiPercent} />, numeric: true },
-  { key: 'parsersPercent', label: industryTableLabels.parsersPercent ?? industryFieldLabels.parsersPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.parsersPercent} />, numeric: true },
-  { key: 'credsPercent', label: industryTableLabels.credsPercent ?? industryFieldLabels.credsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.credsPercent} />, numeric: true },
-  { key: 'scanerPercent', label: industryTableLabels.scanerPercent ?? industryFieldLabels.scanerPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.scanerPercent} />, numeric: true },
-  { key: 'paymentsCrackPercent', label: industryTableLabels.paymentsCrackPercent ?? industryFieldLabels.paymentsCrackPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.paymentsCrackPercent} />, numeric: true },
-  { key: 'smsPushBomberPercent', label: industryTableLabels.smsPushBomberPercent ?? industryFieldLabels.smsPushBomberPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.smsPushBomberPercent} />, numeric: true },
+const industryTableColumns: Array<{ key: IndustrySortKey; sourceKey: string; label: string; description: string; render: (item: IndustrySummary) => ReactNode; numeric?: boolean }> = [
+  { key: 'industry', sourceKey: 'industry', label: industryTableLabels.industry ?? industryFieldLabels.industry, description: industryFieldLabels.industry, render: (item) => item.industry },
+  { key: 'totalTraffic', sourceKey: 'all_trafic', label: industryTableLabels.totalTraffic ?? industryFieldLabels.allTrafic, description: industryFieldLabels.allTrafic, render: (item) => formatNumber(item.totalTraffic), numeric: true },
+  { key: 'humansPercent', sourceKey: 'humans_percent', label: industryTableLabels.humansPercent ?? industryFieldLabels.humansPercent, description: industryFieldLabels.humansPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.humansPercent} />, numeric: true },
+  { key: 'badBotsPercent', sourceKey: 'bad_bots_percent', label: industryTableLabels.badBotsPercent ?? industryFieldLabels.badBotsPercent, description: industryFieldLabels.badBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.badBotsPercent} />, numeric: true },
+  { key: 'goodBotsPercent', sourceKey: 'good_bots_percent', label: industryTableLabels.goodBotsPercent ?? industryFieldLabels.goodBotsPercent, description: industryFieldLabels.goodBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.goodBotsPercent} />, numeric: true },
+  { key: 'apiPercent', sourceKey: 'api_percent', label: industryTableLabels.apiPercent ?? industryFieldLabels.apiPercent, description: industryFieldLabels.apiPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.apiPercent} />, numeric: true },
+  { key: 'parsersPercent', sourceKey: 'parsers_percent', label: industryTableLabels.parsersPercent ?? industryFieldLabels.parsersPercent, description: industryFieldLabels.parsersPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.parsersPercent} />, numeric: true },
+  { key: 'credsPercent', sourceKey: 'creds_percent', label: industryTableLabels.credsPercent ?? industryFieldLabels.credsPercent, description: industryFieldLabels.credsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.credsPercent} />, numeric: true },
+  { key: 'scanerPercent', sourceKey: 'scaner_percent', label: industryTableLabels.scanerPercent ?? industryFieldLabels.scanerPercent, description: industryFieldLabels.scanerPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.scanerPercent} />, numeric: true },
+  { key: 'paymentsCrackPercent', sourceKey: 'payments_crack_percent', label: industryTableLabels.paymentsCrackPercent ?? industryFieldLabels.paymentsCrackPercent, description: industryFieldLabels.paymentsCrackPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.paymentsCrackPercent} />, numeric: true },
+  { key: 'smsPushBomberPercent', sourceKey: 'sms_push_bomber_percent', label: industryTableLabels.smsPushBomberPercent ?? industryFieldLabels.smsPushBomberPercent, description: industryFieldLabels.smsPushBomberPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.smsPushBomberPercent} />, numeric: true },
 ];
 
 function MetricValue({ traffic, percent }: { traffic: number; percent: number }) {
@@ -893,7 +1055,7 @@ function MetricValue({ traffic, percent }: { traffic: number; percent: number })
   );
 }
 
-function IndustryTable({ summaries }: { summaries: IndustrySummary[] }) {
+export function IndustryTable({ summaries }: { summaries: IndustrySummary[] }) {
   const [sort, setSort] = useState<IndustrySort>(null);
   const visibleSummaries = useMemo(() => sortIndustrySummaries(summaries, sort), [sort, summaries]);
   const toggleSort = (key: IndustrySortKey) => {
@@ -908,9 +1070,10 @@ function IndustryTable({ summaries }: { summaries: IndustrySummary[] }) {
     <article className="panel industry-table-panel">
       <div className="section-heading">
         <div>
-          <h2>Отраслевой отчет</h2>
-          <p>Агрегированные метрики по каждой отрасли. Клик по заголовку сортирует столбец.</p>
+          <h2>Метрики по отраслям</h2>
+          <p>Сводные показатели трафика и атак по найденным отраслям.</p>
         </div>
+        <span className="industry-table-count">{formatNumber(visibleSummaries.length)} {pluralIndustries(visibleSummaries.length)}</span>
       </div>
       <div className="industry-table-wrap">
         <table className="industry-table">
@@ -918,12 +1081,7 @@ function IndustryTable({ summaries }: { summaries: IndustrySummary[] }) {
             <tr>
               {industryTableColumns.map((column) => (
                 <th key={column.key}>
-                  <button className={`industry-sort-button ${sort?.key === column.key ? 'active' : ''}`} type="button" onClick={() => toggleSort(column.key)} title="Сортировать">
-                    <span>{column.label}</span>
-                    <span className="industry-sort-icon" aria-hidden="true">
-                      {sort?.key === column.key ? (sort.direction === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
-                    </span>
-                  </button>
+                  <IndustryColumnHeader column={column} sort={sort} onSort={() => toggleSort(column.key)} />
                 </th>
               ))}
             </tr>
@@ -938,10 +1096,66 @@ function IndustryTable({ summaries }: { summaries: IndustrySummary[] }) {
                 ))}
               </tr>
             ))}
+            {!visibleSummaries.length && (
+              <tr>
+                <td className="industry-table-empty" colSpan={industryTableColumns.length}>По выбранным фильтрам отрасли не найдены.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
     </article>
+  );
+}
+
+function IndustryColumnHeader({
+  column,
+  sort,
+  onSort,
+}: {
+  column: (typeof industryTableColumns)[number];
+  sort: IndustrySort;
+  onSort: () => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [tooltip, setTooltip] = useState<{ left: number; top: number } | null>(null);
+  const showTooltip = () => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 390;
+    const estimatedHeight = 118;
+    const left = Math.min(Math.max(rect.left, 12), window.innerWidth - width - 12);
+    const top = rect.bottom + estimatedHeight + 12 <= window.innerHeight ? rect.bottom + 8 : rect.top - estimatedHeight - 8;
+    setTooltip({ left, top: Math.max(12, top) });
+  };
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        className={`industry-sort-button ${sort?.key === column.key ? 'active' : ''}`}
+        type="button"
+        onClick={onSort}
+        onPointerEnter={showTooltip}
+        onPointerLeave={() => setTooltip(null)}
+        onFocus={showTooltip}
+        onBlur={() => setTooltip(null)}
+        aria-label={`${column.label}. ${column.description}. Нажмите для сортировки.`}
+      >
+        <span>{column.label}</span>
+        <span className="industry-sort-icon" aria-hidden="true">
+          {sort?.key === column.key ? (sort.direction === 'desc' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+        </span>
+      </button>
+      {tooltip && createPortal(
+        <div className="industry-dashboard industry-column-tooltip" role="tooltip" style={{ left: tooltip.left, top: tooltip.top }}>
+          <code>{column.sourceKey}</code>
+          <p>{column.description}</p>
+          <span>Нажмите на заголовок, чтобы отсортировать столбец</span>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 

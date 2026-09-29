@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bot, Factory, FileText, FolderTree, LayoutGrid, Newspaper, Sparkles, SlidersHorizontal, Upload } from 'lucide-react';
+import { Bot, Factory, FileText, FolderTree, LayoutGrid, SlidersHorizontal, Upload } from 'lucide-react';
 import { emptyFilters, normalizeFilters, type AnalysisMode, type FiltersState, type ImportedFileMeta, type IndustryRow, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
 import { clearPersistedState, loadPersistedState, savePersistedState } from '../shared/lib/storage';
 import { parseLogFile } from '../features/import/logParser';
@@ -11,11 +11,8 @@ import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { AuthGate } from './AuthGate';
 import { totalIndustryTraffic } from '../features/analytics/industrySelectors';
 import { emptyIndustryFilters, type IndustryFiltersState } from '../features/dashboard/industry/IndustryDashboard';
-import { emptyIndustryPrRadarState, type IndustryPrRadarState } from '../features/dashboard/industry/IndustryPrRadar';
-import { NeraLensAiChat } from '../features/ai/NeraLensAiChat';
-import { loadNeraLensAiConfig, saveNeraLensAiConfig, type NeraLensAiConfig } from '../features/ai/neraLensAi';
 
-type Screen = 'overview' | 'pages' | 'sitemap' | 'pr' | 'settings';
+type Screen = 'overview' | 'pages' | 'sitemap' | 'industries' | 'settings';
 
 const activeScreenKey = 'neralens-active-screen';
 
@@ -23,7 +20,7 @@ const screenMeta: Record<Screen, { title: string; subtitle: string }> = {
   overview: { title: 'Обзор', subtitle: 'Общая картина по запросам AI-ботов к сайту' },
   pages: { title: 'Страницы', subtitle: 'Пути, разделы и детальная статистика по AI-ботам' },
   sitemap: { title: 'Карта сайта', subtitle: 'Дерево страниц Servicepipe и активность AI-ботов' },
-  pr: { title: 'Обзор', subtitle: 'Общая картина по запросам AI-ботов к сайту' },
+  industries: { title: 'Отрасли', subtitle: 'Сводные метрики по отраслям' },
   settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
 };
 
@@ -31,7 +28,7 @@ const industryScreenMeta: Record<Screen, { title: string; subtitle: string }> = 
   overview: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
   pages: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
   sitemap: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
-  pr: { title: 'PR-радар', subtitle: 'Отрасли с заметными отклонениями и динамикой атак' },
+  industries: { title: 'Отрасли', subtitle: 'Трафик и атаки по каждой отрасли' },
   settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
 };
 
@@ -46,7 +43,7 @@ function createFileMeta(file: File, rowCount: number, kind: AnalysisMode): Impor
 }
 
 function isScreen(value: unknown): value is Screen {
-  return value === 'overview' || value === 'pages' || value === 'sitemap' || value === 'pr' || value === 'settings';
+  return value === 'overview' || value === 'pages' || value === 'sitemap' || value === 'industries' || value === 'settings';
 }
 
 function inferSiteDomain(rows: LogRow[]): string {
@@ -72,9 +69,6 @@ export function App() {
   const [isParsing, setParsing] = useState(false);
   const [filters, setFilters] = useState<FiltersState>(() => normalizeFilters(readUrlState().filters));
   const [industryFilters, setIndustryFilters] = useState<IndustryFiltersState>(emptyIndustryFilters);
-  const [industryPrRadarState, setIndustryPrRadarState] = useState<IndustryPrRadarState>(emptyIndustryPrRadarState);
-  const [aiConfig, setAiConfig] = useState<NeraLensAiConfig>(() => loadNeraLensAiConfig());
-  const [aiChatOpen, setAiChatOpen] = useState(false);
   const [activeScreen, setActiveScreen] = useState<Screen>(() => {
     const urlScreen = readUrlState().screen;
     if (isScreen(urlScreen)) return urlScreen;
@@ -118,17 +112,13 @@ export function App() {
   }, [activeScreen, filters]);
 
   useEffect(() => {
-    saveNeraLensAiConfig(aiConfig);
-  }, [aiConfig]);
-
-  useEffect(() => {
     if (!isReady) return;
     void savePersistedState({ version: 5, analysisMode, rows, industryRows, files, sitemapFiles, robotsTxt, servicepipeLogs });
   }, [analysisMode, files, industryRows, isReady, robotsTxt, rows, servicepipeLogs, sitemapFiles]);
 
   useEffect(() => {
     if (analysisMode === 'industry' && (activeScreen === 'pages' || activeScreen === 'sitemap')) setActiveScreen('overview');
-    if (analysisMode === 'logs' && activeScreen === 'pr') setActiveScreen('overview');
+    if (analysisMode === 'logs' && activeScreen === 'industries') setActiveScreen('overview');
     if (analysisMode === 'logs' && activeScreen === 'sitemap' && !servicepipeLogs) setActiveScreen('pages');
   }, [activeScreen, analysisMode, servicepipeLogs]);
 
@@ -191,7 +181,6 @@ export function App() {
     setServicepipeLogs(true);
     setFilters(emptyFilters);
     setIndustryFilters(emptyIndustryFilters);
-    setIndustryPrRadarState(emptyIndustryPrRadarState);
     setActiveScreen('overview');
     setNote('');
     setError('');
@@ -230,20 +219,16 @@ export function App() {
       servicepipeLogs={servicepipeLogs}
       filters={filters}
       industryFilters={industryFilters}
-      industryPrRadarState={industryPrRadarState}
       analytics={analytics}
       analyticsPending={analyticsPending}
       onFiltersChange={setFilters}
       onIndustryFiltersChange={setIndustryFilters}
-      onIndustryPrRadarStateChange={setIndustryPrRadarState}
       onResetFilters={() => setFilters(emptyFilters)}
       onPathSelect={(path) => setFilters((current) => ({ ...current, pathQuery: path }))}
       onAddLogs={() => pickFilesForMode('logs')}
       onAddIndustry={() => pickFilesForMode('industry')}
       onClearLogs={() => void resetAll()}
       onServicepipeLogsChange={setServicepipeLogs}
-      aiConfig={aiConfig}
-      onAiConfigChange={setAiConfig}
       onAnalysisModeChange={(mode) => {
         setAnalysisMode(mode);
         setActiveScreen('overview');
@@ -279,17 +264,9 @@ export function App() {
           <button className={`nav-link ${activeScreen === 'overview' ? 'active' : ''}`} onClick={() => setActiveScreen('overview')}><LayoutGrid className="h-4 w-4" />Обзор</button>
           {analysisMode === 'logs' && <button className={`nav-link ${activeScreen === 'pages' ? 'active' : ''}`} onClick={() => setActiveScreen('pages')}><FileText className="h-4 w-4" />Страницы</button>}
           {analysisMode === 'logs' && servicepipeLogs && <button className={`nav-link ${activeScreen === 'sitemap' ? 'active' : ''}`} onClick={() => setActiveScreen('sitemap')}><FolderTree className="h-4 w-4" />Карта сайта</button>}
-          {analysisMode === 'industry' && <button className={`nav-link ${activeScreen === 'pr' ? 'active' : ''}`} onClick={() => setActiveScreen('pr')}><Newspaper className="h-4 w-4" />PR-радар</button>}
+          {analysisMode === 'industry' && <button className={`nav-link ${activeScreen === 'industries' ? 'active' : ''}`} onClick={() => setActiveScreen('industries')}><Factory className="h-4 w-4" />Отрасли</button>}
           <button className={`nav-link ${activeScreen === 'settings' ? 'active' : ''}`} onClick={() => setActiveScreen('settings')}><SlidersHorizontal className="h-4 w-4" />Настройки</button>
         </nav>
-        {analysisMode === 'industry' && (
-          <div className="sidebar-bottom">
-            <button className="ai-sidebar-button" type="button" onClick={() => setAiChatOpen(true)}>
-              <span><Sparkles className="h-4 w-4" /></span>
-              <strong>NeraLens AI</strong>
-            </button>
-          </div>
-        )}
       </aside>
       <main className="workspace">
         <header className="topbar">
@@ -304,16 +281,6 @@ export function App() {
         {isParsing && <div className="panel mb-3 p-3 text-sm font-bold text-aqua">Обработка...</div>}
         {content}
       </main>
-      <NeraLensAiChat
-        open={aiChatOpen}
-        rows={industryRows}
-        config={aiConfig}
-        onClose={() => setAiChatOpen(false)}
-        onOpenSettings={() => {
-          setAiChatOpen(false);
-          setActiveScreen('settings');
-        }}
-      />
       </div>
     </AuthGate>
   );

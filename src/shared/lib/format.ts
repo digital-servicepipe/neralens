@@ -17,8 +17,17 @@ export const formatCompactNumber = (value: number): string => {
   return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits }).format(scaled)} ${unit.label}`;
 };
 
-export const formatPercent = (value: number): string =>
-  `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)}%`;
+export const formatPercentValue = (value: number): string => {
+  if (!Number.isFinite(value)) return '—';
+  const absolute = Math.abs(value);
+  const maximumFractionDigits = absolute > 0 && absolute < 0.01
+    ? Math.min(20, Math.max(2, Math.ceil(-Math.log10(absolute)) + 2))
+    : 2;
+
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits }).format(value);
+};
+
+export const formatPercent = (value: number): string => `${formatPercentValue(value)}%`;
 
 export function truncateMiddle(value: string, max = 42): string {
   if (value.length <= max) return value;
@@ -32,4 +41,12 @@ export function pluralFiles(count: number): string {
   if (mod10 === 1 && mod100 !== 11) return 'файл';
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'файла';
   return 'файлов';
+}
+
+export function pluralIndustries(count: number): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'отрасль';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'отрасли';
+  return 'отраслей';
 }

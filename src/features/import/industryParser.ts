@@ -35,6 +35,7 @@ const percentColumns = [
 ] as const satisfies readonly (keyof IndustryRow)[];
 
 const requiredColumns = ['industry', 'date', 'allTrafic', ...percentColumns] as const;
+const compositionTolerance = 0.11;
 
 function normalizeColumnName(column: string): string {
   return column.trim().replace(/^\uFEFF/, '').toLowerCase();
@@ -117,6 +118,19 @@ function validateRow(row: IndustryRow, rowNumber: number): void {
       throw new Error(`Строка ${rowNumber}: ${sourceName} должен быть числом от 0 до 100.`);
     }
   }
+
+  validateComposition(rowNumber, 'bots_percent + strong_bots_percent', row.botsPercent + row.strongBotsPercent);
+  validateComposition(
+    rowNumber,
+    'mobile_bots_percent + desktop_bots_percent + unknown_bots_percent',
+    row.mobileBotsPercent + row.desktopBotsPercent + row.unknownBotsPercent,
+  );
+  validateComposition(rowNumber, 'ru_percent + foreign_percent', row.ruPercent + row.foreignPercent);
+}
+
+function validateComposition(rowNumber: number, label: string, sum: number): void {
+  if (Math.abs(sum - 100) <= compositionTolerance) return;
+  throw new Error(`Строка ${rowNumber}: ${label} должны составлять 100%, сейчас ${sum}%. Данные не нормализованы автоматически.`);
 }
 
 export async function parseIndustryText(text: string): Promise<ParsedIndustryResult> {

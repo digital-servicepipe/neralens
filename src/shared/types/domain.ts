@@ -74,6 +74,7 @@ export interface FiltersState {
   dateTo: string;
   agentGroups: AgentGroup[];
   agentDetails: string[];
+  companies: string[];
   requestStatuses: string[];
   sections: string[];
   excludedSections: string[];
@@ -127,6 +128,7 @@ export const emptyFilters: FiltersState = {
   dateTo: '',
   agentGroups: [],
   agentDetails: [],
+  companies: [],
   requestStatuses: [],
   sections: [],
   excludedSections: [],
@@ -140,6 +142,7 @@ export function normalizeFilters(filters?: Partial<FiltersState> | null): Filter
     dateTo: filters?.dateTo ?? '',
     agentGroups: Array.isArray(filters?.agentGroups) ? filters.agentGroups : [],
     agentDetails: Array.isArray(filters?.agentDetails) ? filters.agentDetails : [],
+    companies: Array.isArray(filters?.companies) ? filters.companies : [],
     requestStatuses: Array.isArray(filters?.requestStatuses) ? filters.requestStatuses : [],
     sections: Array.isArray(filters?.sections) ? filters.sections : [],
     excludedSections: Array.isArray(filters?.excludedSections) ? filters.excludedSections : [],

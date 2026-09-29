@@ -51,11 +51,26 @@ export interface IndustrySummary {
   smsPushBomberPercent: number;
 }
 
+const badBotDenominatorMetrics = new Set<keyof IndustryRow>([
+  'botsPercent',
+  'strongBotsPercent',
+  'mobileBotsPercent',
+  'desktopBotsPercent',
+  'unknownBotsPercent',
+]);
+
+function metricWeight(row: IndustryRow, key: keyof IndustryRow): number {
+  // These source percentages describe the composition of malicious bot traffic,
+  // so their aggregation denominator is the row's malicious-bot volume.
+  if (badBotDenominatorMetrics.has(key)) return row.allTrafic * row.badBotsPercent / 100;
+  return row.allTrafic;
+}
+
 export function weightedAverage(rows: IndustryRow[], key: keyof IndustryRow): number {
   const totals = rows.reduce(
     (acc, row) => {
-      const weight = row.allTrafic || 0;
-      const value = typeof row[key] === 'number' ? row[key] : 0;
+      const weight = metricWeight(row, key);
+      const value = typeof row[key] === 'number' && Number.isFinite(row[key]) ? row[key] : 0;
       acc.sum += value * weight;
       acc.weight += weight;
       return acc;

@@ -53,4 +53,13 @@ describe('industrySelectors', () => {
     expect(day.apiPercent).toBe(3.5);
     expect(day.apiPercentCount).toBe(140);
   });
+
+  it('weights bot-composition metrics by malicious-bot volume', () => {
+    const rows = [
+      { ...baseRow, allTrafic: 1000, badBotsPercent: 10, strongBotsPercent: 20 },
+      { ...baseRow, allTrafic: 1000, badBotsPercent: 30, strongBotsPercent: 60 },
+    ];
+
+    expect(weightedAverage(rows, 'strongBotsPercent')).toBe(50);
+  });
 });

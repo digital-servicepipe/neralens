@@ -1,4 +1,4 @@
-import { getBotDisplayName } from '../bots/botDictionary';
+import { getBotCompany, getBotDisplayName } from '../bots/botDictionary';
 import { disallowMatches, parseRobotsTxt, parseSitemapXml } from '../sitemap-board/sitemapParser';
 import { normalizeFilters, type AgentGroup, type FiltersState, type LogRow, type SitemapUrl, type TextFilePayload } from '../../shared/types/domain';
 import { getSectionAndPageType, getServicepipeSection, normalizePath, servicepipeSectionLabels, specialSectionOrder } from '../../shared/lib/url';
@@ -21,6 +21,7 @@ export interface Kpis {
 
 export type AnalyticsRow = LogRow & {
   botName: string;
+  company: string;
   pathLower: string;
 };
 
@@ -84,6 +85,7 @@ export function refineSections(rows: LogRow[], includeServicepipeSections = fals
       section,
       pageType: page.pageType,
       botName: getBotDisplayName(row.botType, row.httpUserAgent),
+      company: getBotCompany(row.botType, row.httpUserAgent),
       pathLower: path.toLowerCase(),
     };
   });
@@ -149,6 +151,7 @@ export function filterRows<T extends LogRow | AnalyticsRow>(rows: T[], filters: 
   const excludedSections = new Set(safeFilters.excludedSections.map(normalizeSectionFilter));
   const agentGroups = new Set(safeFilters.agentGroups);
   const agentDetails = new Set(safeFilters.agentDetails);
+  const companies = new Set(safeFilters.companies);
   const requestStatuses = new Set(safeFilters.requestStatuses);
   const countries = new Set(safeFilters.countries);
   return rows.filter((row) => {
@@ -157,6 +160,7 @@ export function filterRows<T extends LogRow | AnalyticsRow>(rows: T[], filters: 
     if (safeFilters.dateTo && row.date > safeFilters.dateTo) return false;
     if (agentGroups.size && !agentGroups.has(row.agentGroup)) return false;
     if (agentDetails.size && !agentDetails.has(botNameFor(row))) return false;
+    if (companies.size && !companies.has(getBotCompany(row.botType, row.httpUserAgent))) return false;
     if (requestStatuses.size && !requestStatuses.has(row.requestStatus)) return false;
     if (selectedSections.size && !selectedSections.has(rowSection)) return false;
     if (excludedSections.has(rowSection)) return false;
@@ -211,6 +215,7 @@ export function buildFilterOptions(rows: Array<LogRow | AnalyticsRow>) {
   const sectionSet = new Set<string>();
   const agentGroups = new Set<AgentGroup>();
   const agentDetails = new Set<string>();
+  const companies = new Set<string>();
   const requestStatuses = new Set<string>();
   const countries = new Set<string>();
   const activeDates: Record<string, number> = {};
@@ -222,6 +227,7 @@ export function buildFilterOptions(rows: Array<LogRow | AnalyticsRow>) {
     agentGroups.add(row.agentGroup);
     const botName = botNameFor(row);
     agentDetails.add(botName);
+    companies.add(getBotCompany(row.botType, row.httpUserAgent));
     if (row.requestStatus) requestStatuses.add(row.requestStatus);
     if (row.country) countries.add(row.country);
     if (row.date && row.date !== 'Unknown') activeDates[row.date] = (activeDates[row.date] ?? 0) + count;
@@ -240,6 +246,7 @@ export function buildFilterOptions(rows: Array<LogRow | AnalyticsRow>) {
   return {
     agentGroups: Array.from(agentGroups),
     agentDetails: Array.from(agentDetails).sort((a, b) => a.localeCompare(b, 'ru')),
+    companies: Array.from(companies).sort((a, b) => a.localeCompare(b, 'ru')),
     agentDetailGroups,
     requestStatuses: Array.from(requestStatuses).sort((a, b) => a.localeCompare(b, 'ru')),
     sections,
@@ -298,6 +305,7 @@ function toCountShare(map: Map<string, number>, total: number, limit: number): C
 export function buildTopLists(rows: Array<LogRow | AnalyticsRow>) {
   const botGroups = new Map<string, number>();
   const agents = new Map<string, number>();
+  const companies = new Map<string, number>();
   const sections = new Map<string, number>();
   const statuses = new Map<string, number>();
   const countries = new Map<string, number>();
@@ -309,6 +317,8 @@ export function buildTopLists(rows: Array<LogRow | AnalyticsRow>) {
     botGroups.set(row.agentGroup, (botGroups.get(row.agentGroup) ?? 0) + count);
     const botName = botNameFor(row);
     agents.set(botName, (agents.get(botName) ?? 0) + count);
+    const company = getBotCompany(row.botType, row.httpUserAgent);
+    companies.set(company, (companies.get(company) ?? 0) + count);
     if (row.section) sections.set(row.section, (sections.get(row.section) ?? 0) + count);
     statuses.set(row.requestStatus || 'Неизвестно', (statuses.get(row.requestStatus || 'Неизвестно') ?? 0) + count);
     countries.set(row.country || 'Неизвестно', (countries.get(row.country || 'Неизвестно') ?? 0) + count);
@@ -320,6 +330,7 @@ export function buildTopLists(rows: Array<LogRow | AnalyticsRow>) {
   return {
     botGroups: toCountShare(botGroups, total, 10),
     agents: toCountShare(agents, total, 10),
+    companies: toCountShare(companies, total, 20),
     sections: toCountShare(sections, total, 12),
     statuses: toCountShare(statuses, total, 16),
     countries: toCountShare(countries, total, 12),

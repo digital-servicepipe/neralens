@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Bot, CalendarDays, ChevronDown, Layers, RotateCcw, Search, Shield, SlidersHorizontal } from 'lucide-react';
+import { Bot, Building2, CalendarDays, ChevronDown, Layers, RotateCcw, Search, Shield, SlidersHorizontal } from 'lucide-react';
 import { agentGroupLabels, getBotColor } from '../../bots/botDictionary';
 import type { AgentGroup, FiltersState } from '../../../shared/types/domain';
 
@@ -8,6 +8,7 @@ interface FiltersPanelProps {
   options: {
     agentGroups: AgentGroup[];
     agentDetails: string[];
+    companies: string[];
     agentDetailGroups: Record<string, AgentGroup[]>;
     requestStatuses: string[];
     sections: string[];
@@ -18,7 +19,7 @@ interface FiltersPanelProps {
   onReset: () => void;
 }
 
-type Popover = 'date' | 'groups' | 'bots' | 'statuses' | 'sections' | null;
+type Popover = 'date' | 'companies' | 'groups' | 'bots' | 'statuses' | 'sections' | null;
 type PopoverKey = Exclude<Popover, null>;
 
 function toggle<T extends string>(items: T[], value: T): T[] {
@@ -30,6 +31,7 @@ export function FiltersPanel({ filters, options, onChange, onReset }: FiltersPan
   const datePopoverRef = useRef<HTMLDivElement | null>(null);
   const triggerRefs = useRef<Record<PopoverKey, HTMLButtonElement | null>>({
     date: null,
+    companies: null,
     groups: null,
     bots: null,
     statuses: null,
@@ -47,6 +49,7 @@ export function FiltersPanel({ filters, options, onChange, onReset }: FiltersPan
     filters.dateFrom || filters.dateTo,
     filters.agentGroups.length,
     filters.agentDetails.length,
+    filters.companies.length,
     filters.requestStatuses.length,
     filters.sections.length,
     filters.excludedSections.length,
@@ -212,6 +215,7 @@ export function FiltersPanel({ filters, options, onChange, onReset }: FiltersPan
       </div>
       <div className="filter-fields">
         <FilterButton ref={setTriggerRef('date')} icon={<CalendarDays className="h-4 w-4" />} label="Дата" value={dateLabel(filters)} open={popover === 'date'} onClick={() => setPopover(popover === 'date' ? null : 'date')} />
+        <FilterButton ref={setTriggerRef('companies')} icon={<Building2 className="h-4 w-4" />} label="Компании" value={filters.companies.length ? `${filters.companies.length} выбрано` : 'Все'} badge={filters.companies.length || undefined} open={popover === 'companies'} onClick={() => setPopover(popover === 'companies' ? null : 'companies')} />
         <FilterButton ref={setTriggerRef('groups')} icon={<Bot className="h-4 w-4" />} label="Группы" value={filters.agentGroups.length ? `${filters.agentGroups.length} выбрано` : 'Все'} badge={filters.agentGroups.length || undefined} open={popover === 'groups'} onClick={() => setPopover(popover === 'groups' ? null : 'groups')} />
         <FilterButton ref={setTriggerRef('bots')} icon={<SlidersHorizontal className="h-4 w-4" />} label="Боты" value={filters.agentDetails.length ? `${filters.agentDetails.length} выбрано` : 'Все'} open={popover === 'bots'} onClick={() => setPopover(popover === 'bots' ? null : 'bots')} wide />
         <FilterButton ref={setTriggerRef('statuses')} icon={<Shield className="h-4 w-4" />} label="Статусы" value={filters.requestStatuses[0] ?? 'Все'} open={popover === 'statuses'} onClick={() => setPopover(popover === 'statuses' ? null : 'statuses')} />
@@ -276,6 +280,20 @@ export function FiltersPanel({ filters, options, onChange, onReset }: FiltersPan
               label={agentGroupLabels[group]}
               checked={filters.agentGroups.includes(group)}
               onClick={() => onChange((current) => ({ ...current, agentGroups: toggle(current.agentGroups, group) }))}
+            />
+          ))}
+        </ListPopover>
+      )}
+
+      {popover === 'companies' && (
+        <ListPopover style={popoverStyle}>
+          <div className="popover-meta"><span>{options.companies.length} компаний</span><button onClick={() => onChange((current) => ({ ...current, companies: [] }))}>Очистить</button></div>
+          {options.companies.map((company) => (
+            <CheckRow
+              key={company}
+              label={company}
+              checked={filters.companies.includes(company)}
+              onClick={() => onChange((current) => ({ ...current, companies: toggle(current.companies, company) }))}
             />
           ))}
         </ListPopover>

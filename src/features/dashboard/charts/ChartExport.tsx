@@ -15,14 +15,14 @@ export function ExportableChart({ fileName, children }: { fileName: string; chil
 
 export function ChartExportMenu({ fileName }: { fileName: string }) {
   return (
-    <div className="chart-export-menu" aria-label="Экспорт графика">
-      <button type="button" className="chart-export-trigger" title="Экспортировать график" aria-label="Экспортировать график">
+    <div className="chart-export-menu" role="group" aria-label="Скачать график">
+      <button type="button" className="chart-export-button primary" title="Скачать график в PNG" aria-label="Скачать график в PNG" onClick={() => exportChart(fileName, 'png')}>
         <Download size={15} strokeWidth={2.2} />
+        <span>PNG</span>
       </button>
-      <div className="chart-export-options">
-        <button type="button" onClick={() => exportChart(fileName, 'svg')}>SVG</button>
-        <button type="button" onClick={() => exportChart(fileName, 'png')}>PNG</button>
-      </div>
+      <button type="button" className="chart-export-button" title="Скачать график в SVG" aria-label="Скачать график в SVG" onClick={() => exportChart(fileName, 'svg')}>
+        SVG
+      </button>
     </div>
   );
 }
@@ -65,17 +65,28 @@ function exportSvgAsPng(serializedSvg: string, sourceSvg: SVGSVGElement, fileNam
   const svgUrl = URL.createObjectURL(new Blob([serializedSvg], { type: 'image/svg+xml;charset=utf-8' }));
   const width = sourceSvg.clientWidth || Math.ceil(sourceSvg.getBoundingClientRect().width);
   const height = sourceSvg.clientHeight || Math.ceil(sourceSvg.getBoundingClientRect().height);
+  const scale = 4;
 
   image.onload = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    canvas.getContext('2d')?.drawImage(image, 0, 0, width, height);
+    canvas.width = Math.ceil(width * scale);
+    canvas.height = Math.ceil(height * scale);
+    const context = canvas.getContext('2d');
+    if (!context) {
+      URL.revokeObjectURL(svgUrl);
+      return;
+    }
+    context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--fk-card').trim() || '#1e1f20';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(svgUrl);
     canvas.toBlob((blob) => {
       if (blob) downloadBlob(blob, `${fileName}.png`);
-    }, 'image/png');
+    }, 'image/png', 1);
   };
+  image.onerror = () => URL.revokeObjectURL(svgUrl);
   image.src = svgUrl;
 }
 

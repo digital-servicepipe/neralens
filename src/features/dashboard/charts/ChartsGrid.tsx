@@ -91,6 +91,11 @@ export function ChartsGrid({ analytics }: { analytics: Analytics }) {
     name: truncateMiddle(item.label, 18),
     color: getBotColor(item.label, agentGroupByName[item.label]),
   }));
+  const companyBars = analytics.top.companies.slice(0, 10).map((item, index) => ({
+    ...item,
+    name: item.label,
+    color: chartColors[index % chartColors.length],
+  }));
   const sectionBars = analytics.top.sections.slice(0, 10).map((item, index) => ({
     ...item,
     name: item.label,
@@ -151,6 +156,7 @@ export function ChartsGrid({ analytics }: { analytics: Analytics }) {
         <SmallBar title="Разделы сайта" subtitle="Топ-10 разделов по количеству запросов" data={sectionBars} height={320} yAxisWidth={142} showAllLabels />
       </div>
       <div className="three-grid grid gap-3">
+        <SmallBar title="Компании" subtitle="Топ-10 владельцев ботов по количеству ИИ-запросов" data={companyBars} height={300} />
         <SmallBar title="Группы ботов" subtitle="Соотношение запросов по группам ботовы" data={groupBars} />
         <SmallBar title="Топ-10 user-agent" subtitle="Какие user-agent'ы делают больше запросов" data={agentBars} height={300} />
         <SmallBar title="Статусы запросов" subtitle="Статистика пропущенных и заблокированных запросов к ресурсу" data={statusBars} />

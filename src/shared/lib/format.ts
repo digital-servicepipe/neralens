@@ -18,7 +18,7 @@ export const formatCompactNumber = (value: number): string => {
 };
 
 export const formatPercent = (value: number): string =>
-  `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: value < 10 ? 1 : 0 }).format(value)}%`;
+  `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)}%`;
 
 export function truncateMiddle(value: string, max = 42): string {
   if (value.length <= max) return value;

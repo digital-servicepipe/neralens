@@ -27,18 +27,25 @@ const columnAliases: Record<string, keyof IndustryRow> = {
   sms_push_bomber_percent: 'smsPushBomberPercent',
 };
 
-const requiredColumns = ['industry', 'date', 'all_trafic'] as const;
+const percentColumns = [
+  'badBotsPercent', 'goodBotsPercent', 'humansPercent', 'botsPercent', 'strongBotsPercent',
+  'mobileBotsPercent', 'desktopBotsPercent', 'unknownBotsPercent', 'dataCentersPercent',
+  'apiPercent', 'ruPercent', 'foreignPercent', 'parsersPercent', 'credsPercent',
+  'scanerPercent', 'paymentsCrackPercent', 'smsPushBomberPercent',
+] as const satisfies readonly (keyof IndustryRow)[];
+
+const requiredColumns = ['industry', 'date', 'allTrafic', ...percentColumns] as const;
 
 function normalizeColumnName(column: string): string {
   return column.trim().replace(/^\uFEFF/, '').toLowerCase();
 }
 
 function numberValue(value: unknown): number {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-  const normalized = String(value ?? '').trim().replace(/\s+/g, '').replace(',', '.');
-  if (!normalized) return 0;
+  if (typeof value === 'number') return value;
+  const normalized = String(value ?? '').trim().replace(/\s+/g, '').replace('%', '').replace(',', '.');
+  if (!normalized) return Number.NaN;
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return parsed;
 }
 
 function stringValue(value: unknown): string {
@@ -83,13 +90,32 @@ function toIndustryRow(record: CsvRecord): IndustryRow {
 }
 
 function validate(fields: string[], records: CsvRecord[]): void {
-  const normalizedFields = fields.map(normalizeColumnName);
-  const missing = requiredColumns.filter((column) => !normalizedFields.includes(column));
-  if (!normalizedFields.length || !records.length) {
+  const canonicalFields = fields.map((field) => columnAliases[normalizeColumnName(field)] ?? normalizeColumnName(field));
+  const missing = requiredColumns.filter((column) => !canonicalFields.includes(column));
+  if (!canonicalFields.length || !records.length) {
     throw new Error('Файл пустой или в нём нет строк с отраслевыми данными.');
   }
   if (missing.length) {
-    throw new Error(`Файл загружен, но структура не подходит для отраслевой аналитики. Не хватает колонок: ${missing.join(', ')}.`);
+    const sourceNames = missing.map((column) => Object.entries(columnAliases).find(([, key]) => key === column)?.[0] ?? column);
+    throw new Error(`Файл загружен, но структура не подходит для достоверной отраслевой аналитики. Не хватает колонок: ${sourceNames.join(', ')}.`);
+  }
+}
+
+function validateRow(row: IndustryRow, rowNumber: number): void {
+  if (!row.industry || row.industry === 'Неизвестно') throw new Error(`Строка ${rowNumber}: не указана отрасль.`);
+  const timestamp = /^\d{4}-\d{2}-\d{2}$/.test(row.date) ? Date.parse(`${row.date}T00:00:00Z`) : Number.NaN;
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString().slice(0, 10) !== row.date) {
+    throw new Error(`Строка ${rowNumber}: некорректная дата «${row.date}».`);
+  }
+  if (!Number.isFinite(row.allTrafic) || row.allTrafic <= 0) {
+    throw new Error(`Строка ${rowNumber}: all_trafic должен быть положительным числом.`);
+  }
+  for (const key of percentColumns) {
+    const value = row[key];
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      const sourceName = Object.entries(columnAliases).find(([, target]) => target === key)?.[0] ?? key;
+      throw new Error(`Строка ${rowNumber}: ${sourceName} должен быть числом от 0 до 100.`);
+    }
   }
 }
 
@@ -104,8 +130,11 @@ export async function parseIndustryText(text: string): Promise<ParsedIndustryRes
   }
   const fields = result.meta.fields ?? [];
   validate(fields, result.data);
-  const rows = result.data.map(toIndustryRow).filter((row) => row.industry && row.allTrafic > 0);
-  if (!rows.length) throw new Error('В файле нет строк с положительным значением all_trafic.');
+  const rows = result.data.map((record, index) => {
+    const row = toIndustryRow(record);
+    validateRow(row, index + 2);
+    return row;
+  });
   return { rows, rowCount: rows.length, detectedColumns: fields.map(normalizeColumnName) };
 }
 

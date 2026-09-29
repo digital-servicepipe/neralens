@@ -23,10 +23,10 @@ export const agentGroups: AgentGroup[] = [
 ];
 
 export const botSignatures: Record<AgentGroup, string[]> = {
-  ai_data_scraper_bot: ['GPTBot', 'ClaudeBot', 'Bytespider', 'CCBot', 'Diffbot', 'FacebookBot', 'Meta-ExternalAgent'],
-  ai_assistant_bot: ['ChatGPT-User', 'Claude-User', 'Perplexity-User', 'MistralAI-User', 'YouBot'],
+  ai_data_scraper_bot: ['GPTBot', 'ClaudeBot', 'Bytespider', 'CCBot', 'Diffbot', 'FacebookBot', 'Meta-ExternalAgent', 'cohere-ai', 'Coherebot', 'Brightbot'],
+  ai_assistant_bot: ['ChatGPT-User', 'Claude-User', 'Perplexity-User', 'MistralAI-User', 'YouBot', 'GigaChat'],
   ai_agent_bot: ['ChatGPT Agent', 'Claude-Web', 'Operator', 'OpenAI-Operator', 'Agent'],
-  ai_bot_search_crawler: ['OAI-SearchBot', 'PerplexityBot', 'Amazonbot', 'Applebot', 'Claude-SearchBot', 'Google-Extended'],
+  ai_bot_search_crawler: ['OAI-SearchBot', 'PerplexityBot', 'Amazonbot', 'Applebot', 'Claude-SearchBot', 'Google-Extended', 'PetalBot', 'TikTokSpider', 'DuckAssistBot'],
 };
 
 const normalizedGroupAliases: Record<string, AgentGroup> = {
@@ -63,6 +63,33 @@ export function getBotDisplayName(botType: string, ua: string): string {
     if (hit) return hit;
   }
   return botType?.trim() || ua?.split(/[ /;]/)[0] || 'Unknown bot';
+}
+
+const companySignatures: Array<[company: string, signatures: string[]]> = [
+  ['OpenAI', ['gptbot', 'chatgpt-user', 'oai-searchbot', 'chatgpt agent', 'openai-operator', 'operator']],
+  ['Яндекс', ['yandexbot', 'yandexaccessibilitybot', 'yandeximages', 'yandexvideo', 'yandexmobilebot']],
+  ['Anthropic', ['claudebot', 'claude-user', 'claude-web', 'claude-searchbot']],
+  ['Perplexity', ['perplexitybot', 'perplexity-user']],
+  ['Google', ['google-extended', 'googlebot', 'googleother']],
+  ['Meta', ['meta-externalagent', 'facebookbot']],
+  ['ByteDance / TikTok', ['bytespider', 'tiktokspider']],
+  ['Huawei', ['petalbot']],
+  ['Сбер', ['gigachat']],
+  ['DuckDuckGo', ['duckassistbot']],
+  ['Cohere', ['cohere-ai', 'coherebot']],
+  ['Bright Data', ['brightbot']],
+  ['Amazon', ['amazonbot']],
+  ['Apple', ['applebot']],
+  ['Mistral AI', ['mistralai-user', 'mistral']],
+  ['You.com', ['youbot']],
+  ['Common Crawl', ['ccbot']],
+  ['Diffbot', ['diffbot']],
+];
+
+/** Returns only a company supported by evidence in bot type or user-agent. */
+export function getBotCompany(botType: string, ua: string): string {
+  const haystack = `${botType} ${ua}`.toLowerCase();
+  return companySignatures.find(([, signatures]) => signatures.some((signature) => haystack.includes(signature)))?.[0] ?? 'Не определено';
 }
 
 export function classifyAgentGroup(uaGroup: string | undefined, botType: string, ua: string): AgentGroup {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyAgentGroup } from '../bots/botDictionary';
+import { classifyAgentGroup, getBotCompany } from '../bots/botDictionary';
 import { buildFilterOptions, buildKpis, filterRows, refineSections } from './selectors';
 import type { LogRow } from '../../shared/types/domain';
 
@@ -28,6 +28,21 @@ describe('analytics selectors', () => {
     expect(classifyAgentGroup(undefined, 'OAI-SearchBot', 'OAI-SearchBot/1.0')).toBe('ai_bot_search_crawler');
   });
 
+  it.each([
+    ['PetalBot', 'Huawei'],
+    ['TikTokSpider', 'ByteDance / TikTok'],
+    ['GigaChat', 'Сбер'],
+    ['DuckAssistBot', 'DuckDuckGo'],
+    ['cohere-ai', 'Cohere'],
+    ['Brightbot 1.0', 'Bright Data'],
+  ])('maps %s to its company', (agent, company) => {
+    expect(getBotCompany(agent, agent)).toBe(company);
+  });
+
+  it('does not mistake the generic Mozilla compatibility token for a company', () => {
+    expect(getBotCompany('Mozilla', 'Mozilla/5.0 AppleWebKit/537.36')).toBe('Не определено');
+  });
+
   it('filters rows and computes KPI', () => {
     expect(filterRows([row], { dateFrom: '2026-07-01', dateTo: '2026-07-31', agentGroups: ['ai_bot_search_crawler'], agentDetails: [], requestStatuses: [], sections: [], countries: [], pathQuery: 'private' })).toHaveLength(1);
     expect(buildKpis([row], 'User-agent: OAI-SearchBot\nDisallow: /private').blockedHits).toBe(1);
@@ -35,6 +50,14 @@ describe('analytics selectors', () => {
 
   it('accepts partial filters restored from older URL state', () => {
     expect(filterRows([row], { agentGroups: ['ai_bot_search_crawler'] })).toHaveLength(1);
+  });
+
+  it('builds company statistics and filters only by evidence from bot fields', () => {
+    const yandexRow = { ...row, uniqId: '2', botType: 'YandexBot', httpUserAgent: 'Mozilla/5.0 (compatible; YandexBot/3.0)' };
+    const rows = refineSections([row, yandexRow]);
+
+    expect(buildFilterOptions(rows).companies).toEqual(['Яндекс', 'OpenAI']);
+    expect(filterRows(rows, { companies: ['Яндекс'] })).toEqual([expect.objectContaining({ uniqId: '2' })]);
   });
 
   it('keeps singleton pages out of sections and groups technical/file rows', () => {

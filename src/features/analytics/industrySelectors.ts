@@ -17,14 +17,14 @@ export const industryMetrics: IndustryMetric[] = [
   { key: 'desktopBotsPercent', label: 'Доля десктопных ботов среди всего бот-трафика', shortLabel: 'Доля десктопных ботов среди всего бот-трафика' },
   { key: 'unknownBotsPercent', label: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика', shortLabel: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика' },
   { key: 'dataCentersPercent', label: 'Доля трафика, исходящего из дата-центров от общего объёма трафика', shortLabel: 'Доля трафика, исходящего из дата-центров от общего объёма трафика' },
-  { key: 'apiPercent', label: 'Доля API-атак среди шести типов атак', shortLabel: 'API-атаки среди всех типов' },
+  { key: 'apiPercent', label: 'Доля API-атак от общего объёма трафика', shortLabel: 'Доля API-атак от общего объёма трафика' },
   { key: 'ruPercent', label: 'Доля трафика из России от общего объёма трафика', shortLabel: 'Доля трафика из России от общего объёма трафика' },
   { key: 'foreignPercent', label: 'Доля иностранного трафика от общего объёма трафика', shortLabel: 'Доля иностранного трафика от общего объёма трафика' },
-  { key: 'parsersPercent', label: 'Доля парсеров среди шести типов атак', shortLabel: 'Парсеры среди всех типов' },
-  { key: 'credsPercent', label: 'Доля подбора учётных данных среди шести типов атак', shortLabel: 'Подбор учётных данных среди всех типов' },
-  { key: 'scanerPercent', label: 'Доля сканеров среди шести типов атак', shortLabel: 'Сканеры среди всех типов' },
-  { key: 'paymentsCrackPercent', label: 'Доля подбора платёжных данных среди шести типов атак', shortLabel: 'Подбор платёжных данных среди всех типов' },
-  { key: 'smsPushBomberPercent', label: 'Доля SMS/Push-бомберов среди шести типов атак', shortLabel: 'SMS/Push-бомберы среди всех типов' },
+  { key: 'parsersPercent', label: 'Доля активности парсеров от общего объёма трафика', shortLabel: 'Доля активности парсеров от общего объёма трафика' },
+  { key: 'credsPercent', label: 'Доля подбора учётных данных от общего объёма трафика', shortLabel: 'Доля подбора учётных данных от общего объёма трафика' },
+  { key: 'scanerPercent', label: 'Доля сканеров от общего объёма трафика', shortLabel: 'Доля сканеров от общего объёма трафика' },
+  { key: 'paymentsCrackPercent', label: 'Доля подбора платёжных данных от общего объёма трафика', shortLabel: 'Доля подбора платёжных данных от общего объёма трафика' },
+  { key: 'smsPushBomberPercent', label: 'Доля SMS/Push-бомберов от общего объёма трафика', shortLabel: 'Доля SMS/Push-бомберов от общего объёма трафика' },
 ];
 
 export interface IndustrySummary {
@@ -51,25 +51,7 @@ export interface IndustrySummary {
   scanerPercent: number;
   paymentsCrackPercent: number;
   smsPushBomberPercent: number;
-  threatCounts: Record<IndustryAttackMetricKey, number>;
 }
-
-export type IndustryAttackMetricKey =
-  | 'apiPercent'
-  | 'parsersPercent'
-  | 'credsPercent'
-  | 'scanerPercent'
-  | 'paymentsCrackPercent'
-  | 'smsPushBomberPercent';
-
-const attackMetricKeys = [
-  'apiPercent',
-  'parsersPercent',
-  'credsPercent',
-  'scanerPercent',
-  'paymentsCrackPercent',
-  'smsPushBomberPercent',
-] as const satisfies readonly IndustryAttackMetricKey[];
 
 const badBotDenominatorMetrics = new Set<keyof IndustryRow>([
   'botsPercent',
@@ -127,11 +109,6 @@ export function badBotTraffic(rows: IndustryRow[]): number {
   return metricTrafficCount(rows, 'badBotsPercent');
 }
 
-export function percentOfBadBotTraffic(rows: IndustryRow[], key: keyof IndustryRow): number {
-  const denominator = badBotTraffic(rows);
-  return denominator ? (metricTrafficCount(rows, key) / denominator) * 100 : 0;
-}
-
 export function normalizedMetricShares(rows: IndustryRow[], keys: readonly (keyof IndustryRow)[]) {
   const counts = keys.map((key) => ({ key, count: metricTrafficCount(rows, key) }));
   const total = counts.reduce((sum, item) => sum + item.count, 0);
@@ -178,9 +155,6 @@ function buildIndustrySummary(industry: string, groupRows: IndustryRow[]): Indus
   const badBotsPercent = weightedAverage(groupRows, 'badBotsPercent');
   const goodBotsPercent = weightedAverage(groupRows, 'goodBotsPercent');
   const humansPercent = weightedAverage(groupRows, 'humansPercent');
-  const normalizedThreats = normalizedMetricShares(groupRows, attackMetricKeys);
-  const threatPercentages = Object.fromEntries(normalizedThreats.map((item) => [item.key, item.percent])) as Record<IndustryAttackMetricKey, number>;
-  const threatCounts = Object.fromEntries(normalizedThreats.map((item) => [item.key, item.count])) as Record<IndustryAttackMetricKey, number>;
   return {
     industry,
     rows: groupRows.length,
@@ -199,15 +173,14 @@ function buildIndustrySummary(industry: string, groupRows: IndustryRow[]): Indus
     desktopBotsPercent: weightedAverage(groupRows, 'desktopBotsPercent'),
     unknownBotsPercent: weightedAverage(groupRows, 'unknownBotsPercent'),
     dataCentersPercent: weightedAverage(groupRows, 'dataCentersPercent'),
-    apiPercent: threatPercentages.apiPercent,
+    apiPercent: weightedAverage(groupRows, 'apiPercent'),
     ruPercent: weightedAverage(groupRows, 'ruPercent'),
     foreignPercent: weightedAverage(groupRows, 'foreignPercent'),
-    parsersPercent: threatPercentages.parsersPercent,
-    credsPercent: threatPercentages.credsPercent,
-    scanerPercent: threatPercentages.scanerPercent,
-    paymentsCrackPercent: threatPercentages.paymentsCrackPercent,
-    smsPushBomberPercent: threatPercentages.smsPushBomberPercent,
-    threatCounts,
+    parsersPercent: weightedAverage(groupRows, 'parsersPercent'),
+    credsPercent: weightedAverage(groupRows, 'credsPercent'),
+    scanerPercent: weightedAverage(groupRows, 'scanerPercent'),
+    paymentsCrackPercent: weightedAverage(groupRows, 'paymentsCrackPercent'),
+    smsPushBomberPercent: weightedAverage(groupRows, 'smsPushBomberPercent'),
   };
 }
 
@@ -240,25 +213,22 @@ export function buildIndustryDailySeries(rows: IndustryRow[]) {
   return Array.from(byDate.entries())
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
     .map(([date, dayRows]) => {
-      const threats = Object.fromEntries(
-        normalizedMetricShares(dayRows, attackMetricKeys).map((item) => [item.key, item.percent]),
-      ) as Record<IndustryAttackMetricKey, number>;
       return {
         date,
         label: new Date(`${date}T00:00:00`).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }),
         traffic: totalIndustryTraffic(dayRows),
         badBotsPercent: weightedAverage(dayRows, 'badBotsPercent'),
-        apiPercent: threats.apiPercent,
+        apiPercent: weightedAverage(dayRows, 'apiPercent'),
         apiPercentCount: estimatePercentCount(dayRows, 'apiPercent'),
-        parsersPercent: threats.parsersPercent,
+        parsersPercent: weightedAverage(dayRows, 'parsersPercent'),
         parsersPercentCount: estimatePercentCount(dayRows, 'parsersPercent'),
-        credsPercent: threats.credsPercent,
+        credsPercent: weightedAverage(dayRows, 'credsPercent'),
         credsPercentCount: estimatePercentCount(dayRows, 'credsPercent'),
-        scanerPercent: threats.scanerPercent,
+        scanerPercent: weightedAverage(dayRows, 'scanerPercent'),
         scanerPercentCount: estimatePercentCount(dayRows, 'scanerPercent'),
-        paymentsCrackPercent: threats.paymentsCrackPercent,
+        paymentsCrackPercent: weightedAverage(dayRows, 'paymentsCrackPercent'),
         paymentsCrackPercentCount: estimatePercentCount(dayRows, 'paymentsCrackPercent'),
-        smsPushBomberPercent: threats.smsPushBomberPercent,
+        smsPushBomberPercent: weightedAverage(dayRows, 'smsPushBomberPercent'),
         smsPushBomberPercentCount: estimatePercentCount(dayRows, 'smsPushBomberPercent'),
       };
     });

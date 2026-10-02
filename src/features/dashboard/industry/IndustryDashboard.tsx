@@ -110,14 +110,14 @@ const industryFieldLabels = {
   desktopBotsPercent: 'Доля десктопных ботов среди всего бот-трафика',
   unknownBotsPercent: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика',
   dataCentersPercent: 'Доля трафика, исходящего из дата-центров от общего объёма трафика',
-  apiPercent: 'Доля API-атак среди шести типов атак',
+  apiPercent: 'Доля API-атак от общего объёма трафика',
   ruPercent: 'Доля трафика из России от общего объёма трафика',
   foreignPercent: 'Доля иностранного трафика от общего объёма трафика',
-  parsersPercent: 'Доля активности парсеров среди шести типов атак',
-  credsPercent: 'Доля атак с подбором учётных данных среди шести типов атак',
-  scanerPercent: 'Доля сканеров среди шести типов атак',
-  paymentsCrackPercent: 'Доля атак с подбором платёжных данных среди шести типов атак',
-  smsPushBomberPercent: 'Доля SMS/Push-бомберов среди шести типов атак',
+  parsersPercent: 'Доля активности парсеров от общего объёма трафика',
+  credsPercent: 'Доля атак с подбором учётных данных от общего объёма трафика',
+  scanerPercent: 'Доля сканеров от общего объёма трафика',
+  paymentsCrackPercent: 'Доля атак с подбором платёжных данных от общего объёма трафика',
+  smsPushBomberPercent: 'Доля SMS/Push-бомберов от общего объёма трафика',
 } satisfies Record<keyof IndustryRow, string>;
 
 const industryShortLabels: Partial<Record<keyof IndustryRow, string>> = {
@@ -156,7 +156,7 @@ const industryTableLabels: Partial<Record<IndustrySortKey, string>> = {
   smsPushBomberPercent: 'SMS/Push-бомберы',
 };
 
-type MetricBasis = 'totalTraffic' | 'botTrafficShare' | 'normalizedThreatTags';
+type MetricBasis = 'totalTraffic' | 'botTrafficShare';
 
 export interface IndustryFiltersState {
   dateFrom: string;
@@ -205,17 +205,9 @@ export function IndustryDashboard({
     ['mobileBotsPercent', industryShortLabels.mobileBotsPercent ?? industryFieldLabels.mobileBotsPercent],
     ['unknownBotsPercent', industryShortLabels.unknownBotsPercent ?? industryFieldLabels.unknownBotsPercent],
   ], 'botTrafficShare'), [filteredRows]);
-  const normalizedAttackMetrics = useMemo(() => {
-    const labels = new Map(selectedThreatKeys.map((key) => [key, industryShortLabels[key] ?? industryFieldLabels[key]]));
-    return normalizedMetricShares(filteredRows, selectedThreatKeys)
-      .map(({ key, count, percent }) => ({
-        name: labels.get(key as IndustryThreatMetricKey) ?? String(key),
-        value: percent,
-        count,
-        color: industryMetricColors[key as ColoredIndustryMetric] ?? brandColors.turquoise,
-      }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredRows, selectedThreatKeys]);
+  const attackMetrics = useMemo(() => buildMetricBars(filteredRows, [
+    ...selectedThreatKeys.map((key) => [key, industryShortLabels[key] ?? industryFieldLabels[key]] as [keyof IndustryRow, string]),
+  ], 'totalTraffic').sort((a, b) => b.value - a.value), [filteredRows, selectedThreatKeys]);
   const trafficComposition = useMemo(() => buildTrafficComposition(filteredRows).map((item) => ({
     key: item.key,
     name: industryShortLabels[item.key] ?? String(item.key),
@@ -247,7 +239,7 @@ export function IndustryDashboard({
       badBotsPercent: item.badBotsPercent,
       badBotsTraffic: estimateMetricCount(item.totalTraffic, item.badBotsPercent),
     }));
-  const attackAxisTicks = useMemo(() => buildPercentTicks(normalizedAttackMetrics.map((item) => item.value)), [normalizedAttackMetrics]);
+  const attackAxisTicks = useMemo(() => buildPercentTicks(attackMetrics.map((item) => item.value)), [attackMetrics]);
   const keyThreat = useMemo(() => buildKeyThreat(filteredRows, selectedThreatKeys), [filteredRows, selectedThreatKeys]);
   const keyIndustry = useMemo(() => buildKeyIndustry(summaries, selectedThreatKeys), [summaries, selectedThreatKeys]);
 
@@ -271,12 +263,12 @@ export function IndustryDashboard({
         <IndustryKpi label="ЧЕЛОВЕЧЕСКИЙ ТРАФИК" value={formatPercent(weightedAverage(filteredRows, 'humansPercent'))} hint="доля в общем трафике" />
         <IndustryKpi label="ОБЕЛЕННЫЕ БОТЫ" value={formatPercent(weightedAverage(filteredRows, 'goodBotsPercent'))} hint={`${formatCompactNumber(metricTrafficCount(filteredRows, 'goodBotsPercent'))} запросов`} />
         <IndustryKpi label="ВРЕДОНОСНЫЙ ТРАФИК" value={formatPercent(weightedAverage(filteredRows, 'badBotsPercent'))} hint={`${formatCompactNumber(totalBadBotTraffic)} запросов`} />
-        <IndustryKpi label="КЛЮЧЕВАЯ УГРОЗА" value={keyThreat.label} hint={`${formatPercent(keyThreat.value)} среди типов атак`} compact />
+        <IndustryKpi label="КЛЮЧЕВАЯ УГРОЗА" value={keyThreat.label} hint={`${formatPercent(keyThreat.value)} от общего трафика`} compact />
         <IndustryKpi label="КЛЮЧЕВАЯ ОТРАСЛЬ" value={keyIndustry.industry} hint={`${keyIndustry.metric}: ${formatPercent(keyIndustry.value)}`} compact />
       </section>
 
       <section className="industry-main-grid grid gap-3">
-        <Panel title="Динамика угроз по дням" subtitle="Доля среди показанных типов атак за день; сумма 100%" bodyClassName="height-chart" action={<ChartExportMenu fileName="nera-lens-industry-threats-daily" />}>
+        <Panel title="Динамика угроз по дням" subtitle="Исходная доля каждого типа атаки от общего трафика за день" bodyClassName="height-chart" action={<ChartExportMenu fileName="nera-lens-industry-threats-daily" />}>
           <ExportableChart fileName="nera-lens-industry-threats-daily">
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={daily} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
@@ -338,7 +330,7 @@ export function IndustryDashboard({
           metric={dataCenterMetrics[0]}
           totalTraffic={totalTraffic}
         />
-        <IndustryBar className="industry-wide-chart" title="Типы угроз" subtitle="Доля среди показанных типов атак; сумма 100%" data={normalizedAttackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="normalizedThreatTags" />
+        <IndustryBar className="industry-wide-chart" title="Типы угроз" subtitle="Исходная доля каждого типа атаки от общего трафика" data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="totalTraffic" />
       </section>
     </div>
   );
@@ -381,8 +373,8 @@ function buildMetricBars(rows: IndustryRow[], items: Array<[keyof IndustryRow, s
 }
 
 function buildKeyThreat(rows: IndustryRow[], keys: readonly IndustryThreatMetricKey[]) {
-  return normalizedMetricShares(rows, keys)
-    .map(({ key, percent }) => ({ key, label: industryThreatLabels[key as IndustryThreatMetricKey], value: percent }))
+  return keys
+    .map((key) => ({ key, label: industryThreatLabels[key], value: weightedAverage(rows, key) }))
     .sort((a, b) => b.value - a.value)[0] ?? { key: 'badBotsPercent', label: industryThreatLabels.badBotsPercent, value: 0 };
 }
 
@@ -690,11 +682,7 @@ function BarPercentTooltip({ active, payload, basis = 'totalTraffic' }: any & { 
   const hasCount = basis !== 'botTrafficShare' && typeof count === 'number';
   const basisLabel = basis === 'botTrafficShare'
     ? 'Доля внутри бот-трафика'
-    : basis === 'badBotTrafficShare'
-      ? 'От вредоносного трафика'
-      : basis === 'normalizedThreatTags'
-        ? 'Среди типов атак'
-        : 'Доля за период';
+    : 'Доля от общего трафика';
 
   return (
     <div className="chart-tooltip industry-metric-tooltip">
@@ -705,7 +693,7 @@ function BarPercentTooltip({ active, payload, basis = 'totalTraffic' }: any & { 
       </div>
       {hasCount && (
         <div className="industry-threat-tooltip-row">
-          <span>{basis === 'normalizedThreatTags' ? 'Объём сигналов' : 'Расчётный объём'}</span>
+          <span>Расчётный объём</span>
           <strong>≈ {formatCompactNumber(Number(count))}</strong>
         </div>
       )}
@@ -1098,12 +1086,12 @@ const industryTableColumns: Array<{ key: IndustrySortKey; sourceKey: string; lab
   { key: 'badBotsPercent', sourceKey: 'bad_bots_percent', label: industryTableLabels.badBotsPercent ?? industryFieldLabels.badBotsPercent, description: industryFieldLabels.badBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.badBotsPercent} />, numeric: true },
   { key: 'goodBotsPercent', sourceKey: 'good_bots_percent', label: industryTableLabels.goodBotsPercent ?? industryFieldLabels.goodBotsPercent, description: industryFieldLabels.goodBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.goodBotsPercent} />, numeric: true },
   { key: 'checkPercent', sourceKey: 'check_percent (или остаток до 100%)', label: industryTableLabels.checkPercent ?? industryFieldLabels.checkPercent, description: industryFieldLabels.checkPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.checkPercent} />, numeric: true },
-  { key: 'apiPercent', sourceKey: 'API / сумма шести типов атак', label: industryTableLabels.apiPercent ?? industryFieldLabels.apiPercent, description: industryFieldLabels.apiPercent, render: (item) => <ThreatMetricValue item={item} metric="apiPercent" />, numeric: true },
-  { key: 'parsersPercent', sourceKey: 'Парсеры / сумма шести типов атак', label: industryTableLabels.parsersPercent ?? industryFieldLabels.parsersPercent, description: industryFieldLabels.parsersPercent, render: (item) => <ThreatMetricValue item={item} metric="parsersPercent" />, numeric: true },
-  { key: 'credsPercent', sourceKey: 'Подбор учётных данных / сумма шести типов атак', label: industryTableLabels.credsPercent ?? industryFieldLabels.credsPercent, description: industryFieldLabels.credsPercent, render: (item) => <ThreatMetricValue item={item} metric="credsPercent" />, numeric: true },
-  { key: 'scanerPercent', sourceKey: 'Сканеры / сумма шести типов атак', label: industryTableLabels.scanerPercent ?? industryFieldLabels.scanerPercent, description: industryFieldLabels.scanerPercent, render: (item) => <ThreatMetricValue item={item} metric="scanerPercent" />, numeric: true },
-  { key: 'paymentsCrackPercent', sourceKey: 'Подбор платёжных данных / сумма шести типов атак', label: industryTableLabels.paymentsCrackPercent ?? industryFieldLabels.paymentsCrackPercent, description: industryFieldLabels.paymentsCrackPercent, render: (item) => <ThreatMetricValue item={item} metric="paymentsCrackPercent" />, numeric: true },
-  { key: 'smsPushBomberPercent', sourceKey: 'SMS/Push-бомберы / сумма шести типов атак', label: industryTableLabels.smsPushBomberPercent ?? industryFieldLabels.smsPushBomberPercent, description: industryFieldLabels.smsPushBomberPercent, render: (item) => <ThreatMetricValue item={item} metric="smsPushBomberPercent" />, numeric: true },
+  { key: 'apiPercent', sourceKey: 'api_percent', label: industryTableLabels.apiPercent ?? industryFieldLabels.apiPercent, description: industryFieldLabels.apiPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.apiPercent} />, numeric: true },
+  { key: 'parsersPercent', sourceKey: 'parsers_percent', label: industryTableLabels.parsersPercent ?? industryFieldLabels.parsersPercent, description: industryFieldLabels.parsersPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.parsersPercent} />, numeric: true },
+  { key: 'credsPercent', sourceKey: 'creds_percent', label: industryTableLabels.credsPercent ?? industryFieldLabels.credsPercent, description: industryFieldLabels.credsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.credsPercent} />, numeric: true },
+  { key: 'scanerPercent', sourceKey: 'scaner_percent', label: industryTableLabels.scanerPercent ?? industryFieldLabels.scanerPercent, description: industryFieldLabels.scanerPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.scanerPercent} />, numeric: true },
+  { key: 'paymentsCrackPercent', sourceKey: 'payments_crack_percent', label: industryTableLabels.paymentsCrackPercent ?? industryFieldLabels.paymentsCrackPercent, description: industryFieldLabels.paymentsCrackPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.paymentsCrackPercent} />, numeric: true },
+  { key: 'smsPushBomberPercent', sourceKey: 'sms_push_bomber_percent', label: industryTableLabels.smsPushBomberPercent ?? industryFieldLabels.smsPushBomberPercent, description: industryFieldLabels.smsPushBomberPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.smsPushBomberPercent} />, numeric: true },
 ];
 
 function MetricValue({ traffic, percent }: { traffic: number; percent: number }) {
@@ -1115,16 +1103,16 @@ function MetricValue({ traffic, percent }: { traffic: number; percent: number })
   );
 }
 
-function ThreatMetricValue({ item, metric }: { item: IndustrySummary; metric: keyof IndustrySummary['threatCounts'] }) {
+function TotalMetricValue({ count }: { count: number }) {
   return (
     <span className="industry-metric-value">
-      <strong>{formatPercent(item[metric])}</strong>
-      <small>≈ {formatCompactNumber(item.threatCounts[metric])}</small>
+      <strong>{formatCompactNumber(count)}</strong>
+      <small>суммарный объём</small>
     </span>
   );
 }
 
-export function IndustryTable({ summaries, totalSummary }: { summaries: IndustrySummary[]; totalSummary?: IndustrySummary }) {
+export function IndustryTable({ summaries, totalSummary, totalRows = [] }: { summaries: IndustrySummary[]; totalSummary?: IndustrySummary; totalRows?: IndustryRow[] }) {
   const [sort, setSort] = useState<IndustrySort>(null);
   const visibleSummaries = useMemo(() => sortIndustrySummaries(summaries, sort), [sort, summaries]);
   const toggleSort = (key: IndustrySortKey) => {
@@ -1176,7 +1164,11 @@ export function IndustryTable({ summaries, totalSummary }: { summaries: Industry
               <tr>
                 {industryTableColumns.map((column) => (
                   <td key={column.key} className={column.numeric ? 'numeric-cell' : undefined}>
-                    {column.key === 'industry' ? <strong>Итого</strong> : column.render(totalSummary)}
+                    {column.key === 'industry'
+                      ? <strong>Итого</strong>
+                      : column.key === 'totalTraffic'
+                        ? formatNumber(totalSummary.totalTraffic)
+                        : <TotalMetricValue count={metricTrafficCount(totalRows, column.key)} />}
                   </td>
                 ))}
               </tr>
@@ -1184,7 +1176,7 @@ export function IndustryTable({ summaries, totalSummary }: { summaries: Industry
           )}
         </table>
       </div>
-      <p className="industry-table-note">Проценты типов атак — доли среди шести выбранных типов: по каждой отрасли и в строке «Итого» сумма 100%. Абсолютные значения — объёмы сигналов из исходных данных.</p>
+      <p className="industry-table-note">В строке «Итого» показаны суммарные объёмы по выбранным отраслям. Проценты в остальных строках взяты из исходного файла и рассчитаны от общего трафика.</p>
     </article>
   );
 }

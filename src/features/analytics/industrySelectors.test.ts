@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { IndustryRow } from '../../shared/types/domain';
-import { buildIndustryDailySeries, buildIndustrySummaries, buildTrafficComposition, normalizedMetricShares, percentOfBadBotTraffic, weightedAverage } from './industrySelectors';
+import { buildIndustryDailySeries, buildIndustrySummaries, buildTrafficComposition, normalizedMetricShares, weightedAverage } from './industrySelectors';
 
 const baseRow: IndustryRow = {
   industry: 'Retail',
@@ -36,24 +36,14 @@ describe('industrySelectors', () => {
     expect(weightedAverage(rows, 'humansPercent')).toBe(65);
   });
 
-  it('recalculates attack percentages against malicious traffic', () => {
-    const rows = [
-      { ...baseRow, allTrafic: 1000, badBotsPercent: 10, apiPercent: 2 },
-      { ...baseRow, allTrafic: 3000, badBotsPercent: 20, apiPercent: 4 },
-    ];
-
-    expect(percentOfBadBotTraffic(rows, 'apiPercent')).toBe(20);
-  });
-
-  it('normalizes the daily threat structure to 100% while preserving source-derived counts', () => {
+  it('keeps source attack percentages weighted by total traffic and derives counts', () => {
     const [day] = buildIndustryDailySeries([
       { ...baseRow, allTrafic: 1000, apiPercent: 2, parsersPercent: 1, credsPercent: 0, scanerPercent: 0, paymentsCrackPercent: 0, smsPushBomberPercent: 0 },
       { ...baseRow, allTrafic: 3000, apiPercent: 4, parsersPercent: 2, credsPercent: 0, scanerPercent: 0, paymentsCrackPercent: 0, smsPushBomberPercent: 0 },
     ]);
 
-    expect(day.apiPercent).toBe(66.67);
-    expect(day.parsersPercent).toBe(33.33);
-    expect(day.apiPercent + day.parsersPercent + day.credsPercent + day.scanerPercent + day.paymentsCrackPercent + day.smsPushBomberPercent).toBe(100);
+    expect(day.apiPercent).toBe(3.5);
+    expect(day.parsersPercent).toBe(1.75);
     expect(day.apiPercentCount).toBe(140);
   });
 
@@ -88,24 +78,22 @@ describe('industrySelectors', () => {
     expect(composition.reduce((sum, item) => sum + item.percent, 0)).toBe(100);
   });
 
-  it('normalizes overlapping threat tags into a separate 100-percent composition', () => {
-    const rows = [{ ...baseRow, apiPercent: 8, parsersPercent: 2 }];
-    const shares = normalizedMetricShares(rows, ['apiPercent', 'parsersPercent']);
+  it('keeps the displayed good-versus-bad bot split at exactly 100%', () => {
+    const rows = [{ ...baseRow, goodBotsPercent: 8, badBotsPercent: 2 }];
+    const shares = normalizedMetricShares(rows, ['goodBotsPercent', 'badBotsPercent']);
 
     expect(shares.map((item) => item.percent)).toEqual([80, 20]);
     expect(shares.reduce((sum, item) => sum + item.percent, 0)).toBe(100);
   });
 
-  it('keeps every industry threat row at exactly 100.00%', () => {
+  it('preserves source attack percentages in industry summaries', () => {
     const summaries = buildIndustrySummaries([
       { ...baseRow, industry: 'Retail', apiPercent: 2, parsersPercent: 1 },
       { ...baseRow, industry: 'Banking', apiPercent: 1, parsersPercent: 1, scanerPercent: 1 },
     ]);
 
-    summaries.forEach((summary) => {
-      const total = summary.apiPercent + summary.parsersPercent + summary.credsPercent + summary.scanerPercent + summary.paymentsCrackPercent + summary.smsPushBomberPercent;
-      expect(total).toBe(100);
-      expect(Math.max(summary.apiPercent, summary.parsersPercent, summary.credsPercent, summary.scanerPercent, summary.paymentsCrackPercent, summary.smsPushBomberPercent)).toBeLessThanOrEqual(100);
-    });
+    expect(summaries.find((summary) => summary.industry === 'Retail')?.apiPercent).toBe(2);
+    expect(summaries.find((summary) => summary.industry === 'Retail')?.parsersPercent).toBe(1);
+    expect(summaries.find((summary) => summary.industry === 'Banking')?.scanerPercent).toBe(1);
   });
 });

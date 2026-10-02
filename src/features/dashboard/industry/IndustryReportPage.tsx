@@ -20,7 +20,7 @@ export function IndustryReportPage({ rows }: { rows: IndustryRow[] }) {
   return (
     <div className="view-stack industry-dashboard industry-report-page">
       <IndustryFilters filters={filters} options={options} onChange={setFilters} onReset={() => setFilters(emptyIndustryFilters)} showThreats={false} />
-      <IndustryTable summaries={summaries} totalSummary={totalSummary} />
+      <IndustryTable summaries={summaries} totalSummary={totalSummary} totalRows={filteredRows} />
     </div>
   );
 }

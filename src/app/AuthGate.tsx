@@ -13,9 +13,8 @@ export function AuthGate({ children }: AuthGateProps) {
   const [isAuthenticated, setAuthenticated] = useState(() => sessionStorage.getItem(authSessionKey) === 'true');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const isDevPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).has('dev-preview');
 
-  if (isAuthenticated || isDevPreview) return <>{children}</>;
+  if (isAuthenticated) return <>{children}</>;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

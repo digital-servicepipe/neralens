@@ -10,6 +10,7 @@ const columnAliases: Record<string, keyof IndustryRow> = {
   bad_bots_percent: 'badBotsPercent',
   good_bots_percent: 'goodBotsPercent',
   humans_percent: 'humansPercent',
+  check_percent: 'checkPercent',
   bots_percent: 'botsPercent',
   strong_bots_percent: 'strongBotsPercent',
   mobile_bots_percent: 'mobileBotsPercent',
@@ -28,13 +29,18 @@ const columnAliases: Record<string, keyof IndustryRow> = {
 };
 
 const percentColumns = [
-  'badBotsPercent', 'goodBotsPercent', 'humansPercent', 'botsPercent', 'strongBotsPercent',
+  'badBotsPercent', 'goodBotsPercent', 'humansPercent', 'checkPercent', 'botsPercent', 'strongBotsPercent',
   'mobileBotsPercent', 'desktopBotsPercent', 'unknownBotsPercent', 'dataCentersPercent',
   'apiPercent', 'ruPercent', 'foreignPercent', 'parsersPercent', 'credsPercent',
   'scanerPercent', 'paymentsCrackPercent', 'smsPushBomberPercent',
 ] as const satisfies readonly (keyof IndustryRow)[];
 
-const requiredColumns = ['industry', 'date', 'allTrafic', ...percentColumns] as const;
+const requiredColumns = [
+  'industry', 'date', 'allTrafic', 'badBotsPercent', 'goodBotsPercent', 'humansPercent',
+  'botsPercent', 'strongBotsPercent', 'mobileBotsPercent', 'desktopBotsPercent',
+  'unknownBotsPercent', 'dataCentersPercent', 'apiPercent', 'ruPercent', 'foreignPercent',
+  'parsersPercent', 'credsPercent', 'scanerPercent', 'paymentsCrackPercent', 'smsPushBomberPercent',
+] as const satisfies readonly (keyof IndustryRow)[];
 const compositionTolerance = 0.11;
 
 function normalizeColumnName(column: string): string {
@@ -66,13 +72,21 @@ function toIndustryRow(record: CsvRecord): IndustryRow {
     Object.entries(record).map(([key, value]) => [columnAliases[normalizeColumnName(key)] ?? normalizeColumnName(key), value]),
   ) as Record<keyof IndustryRow, unknown>;
 
+  const badBotsPercent = numberValue(normalized.badBotsPercent);
+  const goodBotsPercent = numberValue(normalized.goodBotsPercent);
+  const humansPercent = numberValue(normalized.humansPercent);
+  const sourceCheckPercent = numberValue(normalized.checkPercent);
+
   return {
     industry: stringValue(normalized.industry) || 'Неизвестно',
     date: normalizeDate(normalized.date),
     allTrafic: numberValue(normalized.allTrafic),
-    badBotsPercent: numberValue(normalized.badBotsPercent),
-    goodBotsPercent: numberValue(normalized.goodBotsPercent),
-    humansPercent: numberValue(normalized.humansPercent),
+    badBotsPercent,
+    goodBotsPercent,
+    humansPercent,
+    checkPercent: Number.isFinite(sourceCheckPercent)
+      ? sourceCheckPercent
+      : 100 - badBotsPercent - goodBotsPercent - humansPercent,
     botsPercent: numberValue(normalized.botsPercent),
     strongBotsPercent: numberValue(normalized.strongBotsPercent),
     mobileBotsPercent: numberValue(normalized.mobileBotsPercent),
@@ -113,7 +127,7 @@ function validateRow(row: IndustryRow, rowNumber: number): void {
   }
   for (const key of percentColumns) {
     const value = row[key];
-    if (!Number.isFinite(value) || value < 0 || value > 100) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) {
       const sourceName = Object.entries(columnAliases).find(([, target]) => target === key)?.[0] ?? key;
       throw new Error(`Строка ${rowNumber}: ${sourceName} должен быть числом от 0 до 100.`);
     }
@@ -126,6 +140,11 @@ function validateRow(row: IndustryRow, rowNumber: number): void {
     row.mobileBotsPercent + row.desktopBotsPercent + row.unknownBotsPercent,
   );
   validateComposition(rowNumber, 'ru_percent + foreign_percent', row.ruPercent + row.foreignPercent);
+  validateComposition(
+    rowNumber,
+    'humans_percent + good_bots_percent + bad_bots_percent + check_percent',
+    row.humansPercent + row.goodBotsPercent + row.badBotsPercent + (row.checkPercent ?? 0),
+  );
 }
 
 function validateComposition(rowNumber: number, label: string, sum: number): void {

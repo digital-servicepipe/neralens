@@ -48,6 +48,7 @@ export interface IndustryRow {
   badBotsPercent: number;
   goodBotsPercent: number;
   humansPercent: number;
+  checkPercent?: number;
   botsPercent: number;
   strongBotsPercent: number;
   mobileBotsPercent: number;

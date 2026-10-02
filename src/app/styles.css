@@ -3184,7 +3184,7 @@ body {
 }
 
 .industry-dashboard .industry-wide-chart {
-  grid-column: span 2;
+  grid-column: 1 / -1;
 }
 
 .industry-dashboard .industry-filter-fields {
@@ -3666,7 +3666,7 @@ body {
 
 .industry-dashboard .industry-table {
   width: 100%;
-  min-width: 1540px;
+  min-width: 1710px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -3720,6 +3720,21 @@ body {
   background: #282b2c;
 }
 
+.industry-dashboard .industry-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  border-top: 2px solid rgba(1,205,203,.34);
+  background: #25292a;
+  color: var(--ui-color-text);
+  font-weight: 700;
+}
+
+.industry-dashboard .industry-table tfoot td:first-child {
+  z-index: 3;
+  background: #25292a;
+}
+
 .industry-dashboard .industry-table td:first-child {
   z-index: 1;
   box-shadow: 1px 0 0 var(--ui-color-line);
@@ -3769,6 +3784,13 @@ body {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.industry-dashboard .industry-table-note {
+  margin: var(--ui-space-3) 0 0;
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .industry-dashboard .industry-sort-button {
@@ -4691,6 +4713,21 @@ body {
   .kpi-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
+  }
+
+  .industry-dashboard .kpi-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .industry-dashboard .kpi-card {
+    min-width: 0;
+    padding: 13px;
+  }
+
+  .industry-dashboard .kpi-value {
+    font-size: 22px;
+    line-height: 27px;
   }
 
   .kpi-card {

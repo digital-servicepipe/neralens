@@ -52,7 +52,6 @@ const brandColors = {
 type ColoredIndustryMetric =
   | 'humansPercent'
   | 'goodBotsPercent'
-  | 'checkPercent'
   | 'ruPercent'
   | 'foreignPercent'
   | 'botsPercent'
@@ -72,7 +71,6 @@ type ColoredIndustryMetric =
 const industryMetricColors: Record<ColoredIndustryMetric, string> = {
   humansPercent: brandColors.turquoise,
   goodBotsPercent: brandColors.gray,
-  checkPercent: brandColors.yellow,
   ruPercent: brandColors.turquoiseSoft,
   foreignPercent: brandColors.neutralBlue,
   botsPercent: brandColors.turquoise,
@@ -108,31 +106,30 @@ const industryFieldLabels = {
   industry: 'Отрасль компании',
   date: 'Дата',
   allTrafic: 'Общее количество трафика',
-  badBotsPercent: 'Доля вредоносных ботов от общего объёма трафика',
+  badBotsPercent: 'Доля вредоносных ботов от общего объёма трафика. Потенциально легитимные пользователи включены в эту долю',
   goodBotsPercent: 'Доля обеленных ботов (Яндекс, Гугл...) от общего объёма трафика',
   humansPercent: 'Доля человеческого трафика от общего объёма трафика',
-  checkPercent: 'Потенциально легитимные пользователи, для которых выявлены частичные совпадения цифрового отпечатка, противоречия в характеристиках клиента или отсутствие отдельных признаков',
-  botsPercent: 'Доля обычных ботов среди всего бот-трафика',
-  strongBotsPercent: 'Доля продвинутых ботов среди всего бот-трафика',
-  mobileBotsPercent: 'Доля мобильных ботов среди всего бот-трафика',
-  desktopBotsPercent: 'Доля десктопных ботов среди всего бот-трафика',
-  unknownBotsPercent: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика',
+  checkPercent: 'Доля потенциально легитимных пользователей, включённая во вредоносный трафик',
+  botsPercent: 'Доля обычных ботов от общего объёма трафика',
+  strongBotsPercent: 'Доля продвинутых ботов от общего объёма трафика',
+  mobileBotsPercent: 'Доля мобильных ботов от общего объёма трафика',
+  desktopBotsPercent: 'Доля десктопных ботов от общего объёма трафика',
+  unknownBotsPercent: 'Доля ботов с неизвестным типом устройства от общего объёма трафика',
   dataCentersPercent: 'Доля трафика, исходящего из дата-центров от общего объёма трафика',
-  apiPercent: 'Доля API-атак от вредоносного трафика',
+  apiPercent: 'Доля API-атак от объёма вредоносного трафика',
   ruPercent: 'Доля трафика из России от общего объёма трафика',
   foreignPercent: 'Доля иностранного трафика от общего объёма трафика',
-  parsersPercent: 'Доля активности парсеров от вредоносного трафика',
-  credsPercent: 'Доля атак с подбором учётных данных от вредоносного трафика',
-  scanerPercent: 'Доля сканеров от вредоносного трафика',
-  paymentsCrackPercent: 'Доля атак с подбором платёжных данных от вредоносного трафика',
-  smsPushBomberPercent: 'Доля SMS/Push-бомберов от вредоносного трафика',
+  parsersPercent: 'Доля активности парсеров от объёма вредоносного трафика',
+  credsPercent: 'Доля атак, связанных с подбором учётных данных от объёма вредоносного трафика',
+  scanerPercent: 'Доля сканеров от объёма вредоносного трафика',
+  paymentsCrackPercent: 'Доля атак, связанных с подбором платёжных данных от объёма вредоносного трафика',
+  smsPushBomberPercent: 'Доля SMS/Push-бомберов от объёма вредоносного трафика',
 } satisfies Record<keyof IndustryRow, string>;
 
 const industryShortLabels: Partial<Record<keyof IndustryRow, string>> = {
   badBotsPercent: 'Вредоносные боты',
   goodBotsPercent: 'Обеленные боты',
   humansPercent: 'Человеческий трафик',
-  checkPercent: 'Потенциально легитимные',
   botsPercent: 'Обычные боты',
   strongBotsPercent: 'Продвинутые боты',
   mobileBotsPercent: 'Мобильные боты',
@@ -155,8 +152,7 @@ const industryTableLabels: Partial<Record<IndustrySortKey, string>> = {
   humansPercent: 'Человеческий трафик',
   badBotsPercent: 'Вредоносные боты',
   goodBotsPercent: 'Обеленные боты',
-  checkPercent: 'Потенциально легитимные',
-  apiPercent: 'API-атаки · от вредоносного',
+  apiPercent: 'API-атаки · отдельно',
   parsersPercent: 'Парсеры',
   credsPercent: 'Подбор учётных данных',
   scanerPercent: 'Сканеры',
@@ -164,7 +160,7 @@ const industryTableLabels: Partial<Record<IndustrySortKey, string>> = {
   smsPushBomberPercent: 'SMS/Push-бомберы',
 };
 
-type MetricBasis = 'totalTraffic' | 'botTrafficShare' | 'maliciousTrafficShare';
+type MetricBasis = 'totalTraffic' | 'botTrafficShare' | 'maliciousTraffic';
 
 export interface IndustryFiltersState {
   dateFrom: string;
@@ -208,17 +204,17 @@ export function IndustryDashboard({
   const botComplexity = useMemo(() => buildMetricBars(filteredRows, [
     ['strongBotsPercent', industryShortLabels.strongBotsPercent ?? industryFieldLabels.strongBotsPercent],
     ['botsPercent', industryShortLabels.botsPercent ?? industryFieldLabels.botsPercent],
-  ], 'botTrafficShare'), [filteredRows]);
+  ], 'totalTraffic'), [filteredRows]);
   const botDevices = useMemo(() => buildMetricBars(filteredRows, [
     ['desktopBotsPercent', industryShortLabels.desktopBotsPercent ?? industryFieldLabels.desktopBotsPercent],
     ['mobileBotsPercent', industryShortLabels.mobileBotsPercent ?? industryFieldLabels.mobileBotsPercent],
     ['unknownBotsPercent', industryShortLabels.unknownBotsPercent ?? industryFieldLabels.unknownBotsPercent],
-  ], 'botTrafficShare'), [filteredRows]);
+  ], 'totalTraffic'), [filteredRows]);
   const attackMetrics = useMemo(() => buildMetricBars(filteredRows, [
     ...selectedThreatKeys
       .filter((key) => (industryMaliciousActivityMetricKeys as readonly IndustryThreatMetricKey[]).includes(key))
       .map((key) => [key, industryShortLabels[key] ?? industryFieldLabels[key]] as [keyof IndustryRow, string]),
-  ], 'maliciousTrafficShare').sort((a, b) => b.value - a.value), [filteredRows, selectedThreatKeys]);
+  ], 'maliciousTraffic').sort((a, b) => b.value - a.value), [filteredRows, selectedThreatKeys]);
   const apiAttackMetric = useMemo(() => ({
     name: industryShortLabels.apiPercent ?? industryFieldLabels.apiPercent,
     value: weightedAverage(filteredRows, 'apiPercent'),
@@ -278,31 +274,27 @@ export function IndustryDashboard({
 
       <section className="industry-main-grid grid gap-3">
         {selectedMaliciousActivitySeries.length > 0 && <DailyAttackChart title="Динамика угроз по дням" subtitle="Парсеры, подборы данных, сканеры и бомберы — доля от вредоносного трафика" fileName="nera-lens-industry-threats-daily" data={daily} series={selectedMaliciousActivitySeries} />}
-        {selectedApiAttackSeries.length > 0 && <DailyAttackChart title="Динамика API-атак по дням" subtitle="Доля API-атак от вредоносного трафика" fileName="nera-lens-industry-api-attacks-daily" data={daily} series={selectedApiAttackSeries} />}
+        {selectedApiAttackSeries.length > 0 && <DailyAttackChart title="Динамика API-атак по дням" subtitle="Отдельный показатель: доля API-атак от вредоносного трафика" fileName="nera-lens-industry-api-attacks-daily" data={daily} series={selectedApiAttackSeries} />}
         <ThreatTrafficBar className="industry-wide-chart" data={industryThreatTraffic} />
       </section>
 
       <section className="industry-detail-grid grid gap-3">
         <DonutPanel
           title="Весь трафик"
-          subtitle="Доля от всего трафика; потенциально легитимные — остаток до 100%"
+          subtitle="Потенциально легитимные пользователи включены во вредоносный трафик"
           data={trafficComposition}
           centerLabel="100%"
           centerCaption="всего трафика"
         />
         <DonutPanel
           title="Бот-трафик по категориям"
-          subtitle="Доля обычных и продвинутых ботов от всего бот-трафика"
+          subtitle="Доля обычных и продвинутых ботов от общего объёма трафика"
           data={botComplexity}
-          centerLabel="100%"
-          centerCaption="бот-трафика"
         />
         <DonutPanel
           title="Бот-трафик по устройствам"
-          subtitle="Доля десктопных, мобильных и неизвестных устройств от всего бот-трафика"
+          subtitle="Доля десктопных, мобильных и неизвестных устройств от общего объёма трафика"
           data={botDevices}
-          centerLabel="100%"
-          centerCaption="бот-трафика"
         />
         <TrafficShareDonutPanel
           title="Дата-центры"
@@ -314,7 +306,7 @@ export function IndustryDashboard({
         {selectedApiAttackSeries.length > 0 && (
           <TrafficShareDonutPanel
             title="API-атаки"
-            subtitle="Доля API-атак от вредоносного трафика за выбранный период"
+            subtitle="Отдельный показатель: API-атаки могут пересекаться с другими типами атак"
             metric={apiAttackMetric}
             totalTraffic={totalBadBotTraffic}
             wholeLabel="Вредоносный трафик"
@@ -322,7 +314,7 @@ export function IndustryDashboard({
             centerCaption="вредоносный трафик"
           />
         )}
-        {attackMetrics.length > 0 && <IndustryBar className="industry-wide-chart" title="Типы угроз" subtitle="Доли от вредоносного трафика: парсеры, подборы данных, сканеры и SMS/Push-бомберы" data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="maliciousTrafficShare" />}
+        {attackMetrics.length > 0 && <IndustryBar className="industry-wide-chart" title="Типы угроз" subtitle="Доли от вредоносного трафика; API-атаки показаны отдельно" data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="maliciousTraffic" />}
       </section>
     </div>
   );
@@ -379,14 +371,12 @@ export function buildIndustryFilterOptions(rows: IndustryRow[]) {
 }
 
 function buildMetricBars(rows: IndustryRow[], items: Array<[keyof IndustryRow, string]>, basis: MetricBasis) {
-  const traffic = totalIndustryTraffic(rows);
-  const maliciousTraffic = badBotTraffic(rows);
   return items.map(([key, name]) => {
     const value = weightedAverage(rows, key);
     return {
       name,
       value,
-      count: basis === 'botTrafficShare' ? null : estimateMetricCount(basis === 'maliciousTrafficShare' ? maliciousTraffic : traffic, value),
+      count: basis === 'botTrafficShare' ? null : metricTrafficCount(rows, key),
       color: industryMetricColors[key as ColoredIndustryMetric] ?? brandColors.turquoise,
     };
   });
@@ -703,7 +693,7 @@ function BarPercentTooltip({ active, payload, basis = 'totalTraffic' }: any & { 
   const hasCount = basis !== 'botTrafficShare' && typeof count === 'number';
   const basisLabel = basis === 'botTrafficShare'
     ? 'Доля внутри бот-трафика'
-    : basis === 'maliciousTrafficShare'
+    : basis === 'maliciousTraffic'
       ? 'Доля от вредоносного трафика'
       : 'Доля от общего трафика';
 
@@ -977,7 +967,7 @@ function ThreatTrafficBar({ data, className }: { data: ThreatTrafficDatum[]; cla
   };
 
   return (
-    <Panel className={className} title="Вредоносные боты от общего трафика по отраслям" subtitle="Длина полосы — доля из файла; расчётный объём доступен при наведении">
+    <Panel className={className} title="Вредоносные боты от общего трафика по отраслям" subtitle="Потенциально легитимные пользователи включены во вредоносный трафик">
       <div className={`industry-traffic-bars ${data.length > 10 ? 'scrollable' : ''} ${data.length <= 3 ? 'compact' : ''}`}>
         {data.map((item) => {
           const badWidth = `${Math.min(100, Math.max(0, item.badBotsPercent))}%`;
@@ -1105,7 +1095,7 @@ function buildCalendarDays(month: Date) {
   });
 }
 
-type IndustrySortKey = 'industry' | 'totalTraffic' | 'humansPercent' | 'badBotsPercent' | 'goodBotsPercent' | 'checkPercent' | 'apiPercent' | 'parsersPercent' | 'credsPercent' | 'scanerPercent' | 'paymentsCrackPercent' | 'smsPushBomberPercent';
+type IndustrySortKey = 'industry' | 'totalTraffic' | 'humansPercent' | 'badBotsPercent' | 'goodBotsPercent' | 'apiPercent' | 'parsersPercent' | 'credsPercent' | 'scanerPercent' | 'paymentsCrackPercent' | 'smsPushBomberPercent';
 type IndustrySort = { key: IndustrySortKey; direction: 'asc' | 'desc' } | null;
 type IndustryTableGroup = 'composition' | 'api' | 'activity';
 type IndustryTableColumn = {
@@ -1125,8 +1115,7 @@ const industryTableColumns: IndustryTableColumn[] = [
   { key: 'totalTraffic', sourceKey: 'all_trafic', label: industryTableLabels.totalTraffic ?? industryFieldLabels.allTrafic, description: industryFieldLabels.allTrafic, render: (item) => formatNumber(item.totalTraffic), numeric: true },
   { key: 'humansPercent', sourceKey: 'humans_percent', label: industryTableLabels.humansPercent ?? industryFieldLabels.humansPercent, description: industryFieldLabels.humansPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.humansPercent} />, numeric: true, group: 'composition', groupStart: true },
   { key: 'badBotsPercent', sourceKey: 'bad_bots_percent', label: industryTableLabels.badBotsPercent ?? industryFieldLabels.badBotsPercent, description: industryFieldLabels.badBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.badBotsPercent} />, numeric: true, group: 'composition' },
-  { key: 'goodBotsPercent', sourceKey: 'good_bots_percent', label: industryTableLabels.goodBotsPercent ?? industryFieldLabels.goodBotsPercent, description: industryFieldLabels.goodBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.goodBotsPercent} />, numeric: true, group: 'composition' },
-  { key: 'checkPercent', sourceKey: 'check_percent (или остаток до 100%)', label: industryTableLabels.checkPercent ?? industryFieldLabels.checkPercent, description: industryFieldLabels.checkPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.checkPercent} />, numeric: true, group: 'composition', groupEnd: true },
+  { key: 'goodBotsPercent', sourceKey: 'good_bots_percent', label: industryTableLabels.goodBotsPercent ?? industryFieldLabels.goodBotsPercent, description: industryFieldLabels.goodBotsPercent, render: (item) => <MetricValue traffic={item.totalTraffic} percent={item.goodBotsPercent} />, numeric: true, group: 'composition', groupEnd: true },
   { key: 'apiPercent', sourceKey: 'api_percent', label: industryTableLabels.apiPercent ?? industryFieldLabels.apiPercent, description: industryFieldLabels.apiPercent, render: (item) => <MetricValue traffic={estimateMetricCount(item.totalTraffic, item.badBotsPercent)} percent={item.apiPercent} />, numeric: true, group: 'api', groupStart: true, groupEnd: true },
   { key: 'parsersPercent', sourceKey: 'parsers_percent', label: industryTableLabels.parsersPercent ?? industryFieldLabels.parsersPercent, description: industryFieldLabels.parsersPercent, render: (item) => <MetricValue traffic={estimateMetricCount(item.totalTraffic, item.badBotsPercent)} percent={item.parsersPercent} />, numeric: true, group: 'activity', groupStart: true },
   { key: 'credsPercent', sourceKey: 'creds_percent', label: industryTableLabels.credsPercent ?? industryFieldLabels.credsPercent, description: industryFieldLabels.credsPercent, render: (item) => <MetricValue traffic={estimateMetricCount(item.totalTraffic, item.badBotsPercent)} percent={item.credsPercent} />, numeric: true, group: 'activity' },
@@ -1226,7 +1215,7 @@ export function IndustryTable({ summaries, totalSummary, totalRows = [] }: { sum
           )}
         </table>
       </div>
-      <p className="industry-table-note">В строке «Итого» показаны суммарные объёмы по выбранным отраслям. API-атаки и пять типов вредоносной активности рассчитываются от вредоносного трафика; состав трафика — от общего объёма.</p>
+      <p className="industry-table-note">Все доли атак рассчитаны от вредоносного трафика. API-атаки выделены отдельно: они могут пересекаться с другими типами атак или встречаться самостоятельно.</p>
     </article>
   );
 }

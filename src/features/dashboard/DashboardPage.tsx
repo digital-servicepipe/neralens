@@ -7,13 +7,14 @@ import { PagesTable } from './tables/PagesTable';
 import { SettingsPage } from '../settings/SettingsPage';
 import { IndustryDashboard, type IndustryFiltersState } from './industry/IndustryDashboard';
 import { IndustryReportPage } from './industry/IndustryReportPage';
+import { IndustryHelpPage } from '../help/IndustryHelpPage';
 import { SiteMapBoard } from '../sitemap-board/SiteMapBoard';
 import type { AnalysisMode, FiltersState, ImportedFileMeta, IndustryRow, LogRow, TextFilePayload } from '../../shared/types/domain';
 import type { useAnalytics } from '../analytics/useAnalytics';
 import { buildPageTitleCatalog } from '../../shared/lib/pageTitles';
 
 type Analytics = ReturnType<typeof useAnalytics>;
-type Screen = 'overview' | 'pages' | 'sitemap' | 'industries' | 'settings';
+type Screen = 'overview' | 'pages' | 'sitemap' | 'industries' | 'help' | 'settings';
 
 interface DashboardPageProps {
   screen: Screen;
@@ -45,6 +46,8 @@ export function DashboardPage(props: DashboardPageProps) {
     () => buildPageTitleCatalog(props.sitemapFiles, { includeServicepipeTitles: props.servicepipeLogs }),
     [props.servicepipeLogs, props.sitemapFiles],
   );
+
+  if (props.screen === 'help') return <IndustryHelpPage />;
 
   if (props.screen === 'settings') {
     return (

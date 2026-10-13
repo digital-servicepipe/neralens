@@ -48,33 +48,34 @@ describe('industrySelectors', () => {
     expect(day.parsersPercentCount).toBe(7);
   });
 
-  it('weights bot-composition metrics by malicious-bot volume', () => {
+  it('weights bot-composition metrics by total traffic', () => {
     const rows = [
       { ...baseRow, allTrafic: 1000, badBotsPercent: 10, strongBotsPercent: 20 },
       { ...baseRow, allTrafic: 1000, badBotsPercent: 30, strongBotsPercent: 60 },
     ];
 
-    expect(weightedAverage(rows, 'strongBotsPercent')).toBe(50);
+    expect(weightedAverage(rows, 'strongBotsPercent')).toBe(40);
   });
 
-  it('weights API attacks by malicious traffic and derives their count from that traffic', () => {
+  it('weights attack metrics by malicious traffic and derives counts from malicious traffic', () => {
     const rows = [
-      { ...baseRow, allTrafic: 1000, badBotsPercent: 10, apiPercent: 10 },
-      { ...baseRow, allTrafic: 1000, badBotsPercent: 30, apiPercent: 20 },
+      { ...baseRow, allTrafic: 1000, badBotsPercent: 10, checkPercent: 5, apiPercent: 10 },
+      { ...baseRow, allTrafic: 1000, badBotsPercent: 30, checkPercent: 5, apiPercent: 20 },
     ];
 
-    expect(weightedAverage(rows, 'apiPercent')).toBe(17.5);
-    expect(metricTrafficCount(rows, 'apiPercent')).toBe(70);
-    expect(metricTrafficCount(rows.map((row) => ({ ...row, parsersPercent: row.apiPercent })), 'parsersPercent')).toBe(70);
-    expect(buildIndustryDailySeries(rows)[0].apiPercentCount).toBe(70);
+    expect(weightedAverage(rows, 'apiPercent')).toBe(17);
+    expect(metricTrafficCount(rows, 'apiPercent')).toBe(85);
+    expect(metricTrafficCount(rows.map((row) => ({ ...row, parsersPercent: row.apiPercent })), 'parsersPercent')).toBe(85);
+    expect(buildIndustryDailySeries(rows)[0].apiPercentCount).toBe(85);
   });
 
-  it('derives check as the residual and keeps the traffic composition at 100%', () => {
+  it('adds check to malicious bots and keeps the traffic composition at 100%', () => {
     const rows = [{ ...baseRow, checkPercent: undefined, humansPercent: 70, goodBotsPercent: 10, badBotsPercent: 15 }];
     const composition = buildTrafficComposition(rows);
 
-    expect(composition.find((item) => item.key === 'checkPercent')?.percent).toBe(5);
-    expect(composition.reduce((sum, item) => sum + item.percent, 0)).toBe(100);
+    expect(composition).toHaveLength(3);
+    expect(composition.find((item) => item.key === 'badBotsPercent')?.percent).toBe(20);
+    expect(composition.reduce((sum, item) => sum + item.percent, 0)).toBeCloseTo(100, 10);
   });
 
   it('reconciles displayed traffic shares to exactly 100.00% after rounding', () => {
@@ -87,8 +88,8 @@ describe('industrySelectors', () => {
     }];
     const composition = buildTrafficComposition(rows);
 
-    expect(composition.map((item) => item.percent)).toEqual([86.52, 7.02, 4.26, 2.2]);
-    expect(composition.reduce((sum, item) => sum + item.percent, 0)).toBe(100);
+    expect(composition.map((item) => item.percent)).toEqual([86.52, 7.02, 6.46]);
+    expect(composition.reduce((sum, item) => sum + item.percent, 0)).toBeCloseTo(100, 10);
   });
 
   it('keeps the displayed good-versus-bad bot split at exactly 100%', () => {

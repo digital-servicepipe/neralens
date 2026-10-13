@@ -7,24 +7,23 @@ export interface IndustryMetric {
 }
 
 export const industryMetrics: IndustryMetric[] = [
-  { key: 'badBotsPercent', label: 'Доля вредоносных ботов от общего объёма трафика', shortLabel: 'Доля вредоносных ботов от общего объёма трафика' },
+  { key: 'badBotsPercent', label: 'Доля вредоносных ботов от общего объёма трафика (включая потенциально легитимных пользователей)', shortLabel: 'Доля вредоносных ботов от общего объёма трафика' },
   { key: 'goodBotsPercent', label: 'Доля обеленных ботов (Яндекс, Гугл...) от общего объёма трафика', shortLabel: 'Доля обеленных ботов (Яндекс, Гугл...) от общего объёма трафика' },
   { key: 'humansPercent', label: 'Доля человеческого трафика от общего объёма трафика', shortLabel: 'Доля человеческого трафика от общего объёма трафика' },
-  { key: 'checkPercent', label: 'Доля потенциально легитимных пользователей от общего объёма трафика', shortLabel: 'Потенциально легитимные пользователи' },
-  { key: 'botsPercent', label: 'Доля обычных ботов среди всего бот-трафика', shortLabel: 'Доля обычных ботов среди всего бот-трафика' },
-  { key: 'strongBotsPercent', label: 'Доля продвинутых ботов среди всего бот-трафика', shortLabel: 'Доля продвинутых ботов среди всего бот-трафика' },
-  { key: 'mobileBotsPercent', label: 'Доля мобильных ботов среди всего бот-трафика', shortLabel: 'Доля мобильных ботов среди всего бот-трафика' },
-  { key: 'desktopBotsPercent', label: 'Доля десктопных ботов среди всего бот-трафика', shortLabel: 'Доля десктопных ботов среди всего бот-трафика' },
-  { key: 'unknownBotsPercent', label: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика', shortLabel: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика' },
+  { key: 'botsPercent', label: 'Доля обычных ботов от общего объёма трафика', shortLabel: 'Доля обычных ботов от общего объёма трафика' },
+  { key: 'strongBotsPercent', label: 'Доля продвинутых ботов от общего объёма трафика', shortLabel: 'Доля продвинутых ботов от общего объёма трафика' },
+  { key: 'mobileBotsPercent', label: 'Доля мобильных ботов от общего объёма трафика', shortLabel: 'Доля мобильных ботов от общего объёма трафика' },
+  { key: 'desktopBotsPercent', label: 'Доля десктопных ботов от общего объёма трафика', shortLabel: 'Доля десктопных ботов от общего объёма трафика' },
+  { key: 'unknownBotsPercent', label: 'Доля ботов с неизвестным типом устройства от общего объёма трафика', shortLabel: 'Доля ботов с неизвестным типом устройства от общего объёма трафика' },
   { key: 'dataCentersPercent', label: 'Доля трафика, исходящего из дата-центров от общего объёма трафика', shortLabel: 'Доля трафика, исходящего из дата-центров от общего объёма трафика' },
-  { key: 'apiPercent', label: 'Доля API-атак от вредоносного трафика', shortLabel: 'Доля API-атак от вредоносного трафика' },
+  { key: 'apiPercent', label: 'Доля API-атак от объёма вредоносного трафика', shortLabel: 'Доля API-атак от объёма вредоносного трафика' },
   { key: 'ruPercent', label: 'Доля трафика из России от общего объёма трафика', shortLabel: 'Доля трафика из России от общего объёма трафика' },
   { key: 'foreignPercent', label: 'Доля иностранного трафика от общего объёма трафика', shortLabel: 'Доля иностранного трафика от общего объёма трафика' },
-  { key: 'parsersPercent', label: 'Доля активности парсеров от вредоносного трафика', shortLabel: 'Доля активности парсеров от вредоносного трафика' },
-  { key: 'credsPercent', label: 'Доля подбора учётных данных от вредоносного трафика', shortLabel: 'Доля подбора учётных данных от вредоносного трафика' },
-  { key: 'scanerPercent', label: 'Доля сканеров от вредоносного трафика', shortLabel: 'Доля сканеров от вредоносного трафика' },
-  { key: 'paymentsCrackPercent', label: 'Доля подбора платёжных данных от вредоносного трафика', shortLabel: 'Доля подбора платёжных данных от вредоносного трафика' },
-  { key: 'smsPushBomberPercent', label: 'Доля SMS/Push-бомберов от вредоносного трафика', shortLabel: 'Доля SMS/Push-бомберов от вредоносного трафика' },
+  { key: 'parsersPercent', label: 'Доля активности парсеров от объёма вредоносного трафика', shortLabel: 'Доля активности парсеров от объёма вредоносного трафика' },
+  { key: 'credsPercent', label: 'Доля атак, связанных с подбором учётных данных от объёма вредоносного трафика', shortLabel: 'Доля атак, связанных с подбором учётных данных от объёма вредоносного трафика' },
+  { key: 'scanerPercent', label: 'Доля сканеров от объёма вредоносного трафика', shortLabel: 'Доля сканеров от объёма вредоносного трафика' },
+  { key: 'paymentsCrackPercent', label: 'Доля атак, связанных с подбором платёжных данных от объёма вредоносного трафика', shortLabel: 'Доля атак, связанных с подбором платёжных данных от объёма вредоносного трафика' },
+  { key: 'smsPushBomberPercent', label: 'Доля SMS/Push-бомберов от объёма вредоносного трафика', shortLabel: 'Доля SMS/Push-бомберов от объёма вредоносного трафика' },
 ];
 
 export interface IndustrySummary {
@@ -36,7 +35,6 @@ export interface IndustrySummary {
   badBotsPercent: number;
   goodBotsPercent: number;
   humansPercent: number;
-  checkPercent: number;
   botsPercent: number;
   strongBotsPercent: number;
   mobileBotsPercent: number;
@@ -53,12 +51,7 @@ export interface IndustrySummary {
   smsPushBomberPercent: number;
 }
 
-const badBotDenominatorMetrics = new Set<keyof IndustryRow>([
-  'botsPercent',
-  'strongBotsPercent',
-  'mobileBotsPercent',
-  'desktopBotsPercent',
-  'unknownBotsPercent',
+const maliciousTrafficDenominatorMetrics = new Set<keyof IndustryRow>([
   'apiPercent',
   'parsersPercent',
   'credsPercent',
@@ -67,10 +60,23 @@ const badBotDenominatorMetrics = new Set<keyof IndustryRow>([
   'smsPushBomberPercent',
 ]);
 
+export function trafficCheckPercent(row: IndustryRow): number {
+  if (typeof row.checkPercent === 'number' && Number.isFinite(row.checkPercent)) return row.checkPercent;
+  return Math.max(0, 100 - row.humansPercent - row.goodBotsPercent - row.badBotsPercent);
+}
+
+export function combinedBadBotsPercent(row: IndustryRow): number {
+  return row.badBotsPercent + trafficCheckPercent(row);
+}
+
+function metricValue(row: IndustryRow, key: keyof IndustryRow): number {
+  if (key === 'badBotsPercent') return combinedBadBotsPercent(row);
+  if (key === 'checkPercent') return trafficCheckPercent(row);
+  return typeof row[key] === 'number' && Number.isFinite(row[key]) ? Number(row[key]) : 0;
+}
+
 function metricWeight(row: IndustryRow, key: keyof IndustryRow): number {
-  // These source percentages use malicious bot traffic as their denominator,
-  // so aggregation and derived counts must use the row's malicious-bot volume.
-  if (badBotDenominatorMetrics.has(key)) return row.allTrafic * row.badBotsPercent / 100;
+  if (maliciousTrafficDenominatorMetrics.has(key)) return row.allTrafic * combinedBadBotsPercent(row) / 100;
   return row.allTrafic;
 }
 
@@ -78,7 +84,7 @@ export function weightedAverage(rows: IndustryRow[], key: keyof IndustryRow): nu
   const totals = rows.reduce(
     (acc, row) => {
       const weight = metricWeight(row, key);
-      const value = typeof row[key] === 'number' && Number.isFinite(row[key]) ? row[key] : 0;
+      const value = metricValue(row, key);
       acc.sum += value * weight;
       acc.weight += weight;
       return acc;
@@ -97,16 +103,9 @@ function roundPercent(value: number, digits = 2): number {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
-export function trafficCheckPercent(row: IndustryRow): number {
-  if (typeof row.checkPercent === 'number' && Number.isFinite(row.checkPercent)) return row.checkPercent;
-  return 100 - row.humansPercent - row.goodBotsPercent - row.badBotsPercent;
-}
-
 export function metricTrafficCount(rows: IndustryRow[], key: keyof IndustryRow): number {
   return rows.reduce((sum, row) => {
-    const value = key === 'checkPercent'
-      ? trafficCheckPercent(row)
-      : typeof row[key] === 'number' && Number.isFinite(row[key]) ? Number(row[key]) : 0;
+    const value = metricValue(row, key);
     return sum + (metricWeight(row, key) * value) / 100;
   }, 0);
 }
@@ -142,16 +141,13 @@ export function buildTrafficComposition(rows: IndustryRow[]) {
   const humansCount = metricTrafficCount(rows, 'humansPercent');
   const goodBotsCount = metricTrafficCount(rows, 'goodBotsPercent');
   const badBotsCount = metricTrafficCount(rows, 'badBotsPercent');
-  const checkCount = metricTrafficCount(rows, 'checkPercent');
   const humansPercent = total ? roundPercent((humansCount / total) * 100) : 0;
   const goodBotsPercent = total ? roundPercent((goodBotsCount / total) * 100) : 0;
   const badBotsPercent = total ? roundPercent((badBotsCount / total) * 100) : 0;
-  const checkPercent = total ? roundPercent(100 - humansPercent - goodBotsPercent - badBotsPercent) : 0;
   return [
     { key: 'humansPercent' as const, percent: humansPercent, count: humansCount },
     { key: 'goodBotsPercent' as const, percent: goodBotsPercent, count: goodBotsCount },
     { key: 'badBotsPercent' as const, percent: badBotsPercent, count: badBotsCount },
-    { key: 'checkPercent' as const, percent: checkPercent, count: checkCount },
   ];
 }
 
@@ -170,9 +166,6 @@ function buildIndustrySummary(industry: string, groupRows: IndustryRow[]): Indus
     badBotsPercent,
     goodBotsPercent,
     humansPercent,
-    checkPercent: totalTraffic
-      ? roundPercent(100 - roundPercent(humansPercent) - roundPercent(goodBotsPercent) - roundPercent(badBotsPercent))
-      : 0,
     botsPercent: weightedAverage(groupRows, 'botsPercent'),
     strongBotsPercent: weightedAverage(groupRows, 'strongBotsPercent'),
     mobileBotsPercent: weightedAverage(groupRows, 'mobileBotsPercent'),
@@ -242,7 +235,7 @@ export function buildIndustryDailySeries(rows: IndustryRow[]) {
 
 function estimatePercentCount(rows: IndustryRow[], key: keyof IndustryRow) {
   return Math.round(rows.reduce((sum, row) => {
-    const value = typeof row[key] === 'number' ? row[key] : 0;
+    const value = metricValue(row, key);
     return sum + (metricWeight(row, key) * value) / 100;
   }, 0));
 }

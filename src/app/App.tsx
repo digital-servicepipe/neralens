@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Bot, Factory, FileText, FolderTree, LayoutGrid, SlidersHorizontal, Upload } from 'lucide-react';
+import { Bot, CircleHelp, Factory, FileText, FolderTree, LayoutGrid, SlidersHorizontal, Upload } from 'lucide-react';
 import { emptyFilters, normalizeFilters, type AnalysisMode, type FiltersState, type ImportedFileMeta, type IndustryRow, type LogRow, type PersistedState, type TextFilePayload } from '../shared/types/domain';
 import { clearPersistedState, loadPersistedState, savePersistedState } from '../shared/lib/storage';
 import { parseLogFile } from '../features/import/logParser';
@@ -12,7 +12,7 @@ import { AuthGate } from './AuthGate';
 import { totalIndustryTraffic } from '../features/analytics/industrySelectors';
 import { emptyIndustryFilters, type IndustryFiltersState } from '../features/dashboard/industry/IndustryDashboard';
 
-type Screen = 'overview' | 'pages' | 'sitemap' | 'industries' | 'settings';
+type Screen = 'overview' | 'pages' | 'sitemap' | 'industries' | 'help' | 'settings';
 
 const activeScreenKey = 'neralens-active-screen';
 
@@ -21,6 +21,7 @@ const screenMeta: Record<Screen, { title: string; subtitle: string }> = {
   pages: { title: 'Страницы', subtitle: 'Пути, разделы и детальная статистика по AI-ботам' },
   sitemap: { title: 'Карта сайта', subtitle: 'Дерево страниц Servicepipe и активность AI-ботов' },
   industries: { title: 'Отрасли', subtitle: 'Сводные метрики по отраслям' },
+  help: { title: 'Справка', subtitle: 'Как читать данные и от чего считаются показатели' },
   settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
 };
 
@@ -29,6 +30,7 @@ const industryScreenMeta: Record<Screen, { title: string; subtitle: string }> = 
   pages: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
   sitemap: { title: 'Отраслевой отчёт', subtitle: 'Атаки и ботовый трафик в разрезе отраслей' },
   industries: { title: 'Отрасли', subtitle: 'Трафик и атаки по каждой отрасли' },
+  help: { title: 'Справка', subtitle: 'Как читать данные и от чего считаются показатели' },
   settings: { title: 'Настройки', subtitle: 'Режим аналитики, загрузка данных и очистка проекта' },
 };
 
@@ -43,7 +45,7 @@ function createFileMeta(file: File, rowCount: number, kind: AnalysisMode): Impor
 }
 
 function isScreen(value: unknown): value is Screen {
-  return value === 'overview' || value === 'pages' || value === 'sitemap' || value === 'industries' || value === 'settings';
+  return value === 'overview' || value === 'pages' || value === 'sitemap' || value === 'industries' || value === 'help' || value === 'settings';
 }
 
 function inferSiteDomain(rows: LogRow[]): string {
@@ -236,7 +238,7 @@ export function App() {
       }}
     />
   );
-  const content = activeScreen === 'settings' || hasProjectData ? dashboardContent : (
+  const content = activeScreen === 'settings' || activeScreen === 'help' || hasProjectData ? dashboardContent : (
     <EmptyImportScreen
       error={error}
       isParsing={isParsing}
@@ -265,6 +267,7 @@ export function App() {
           {analysisMode === 'logs' && <button className={`nav-link ${activeScreen === 'pages' ? 'active' : ''}`} onClick={() => setActiveScreen('pages')}><FileText className="h-4 w-4" />Страницы</button>}
           {analysisMode === 'logs' && servicepipeLogs && <button className={`nav-link ${activeScreen === 'sitemap' ? 'active' : ''}`} onClick={() => setActiveScreen('sitemap')}><FolderTree className="h-4 w-4" />Карта сайта</button>}
           {analysisMode === 'industry' && <button className={`nav-link ${activeScreen === 'industries' ? 'active' : ''}`} onClick={() => setActiveScreen('industries')}><Factory className="h-4 w-4" />Отрасли</button>}
+          {analysisMode === 'industry' && <button className={`nav-link ${activeScreen === 'help' ? 'active' : ''}`} onClick={() => setActiveScreen('help')}><CircleHelp className="h-4 w-4" />Справка</button>}
           <button className={`nav-link ${activeScreen === 'settings' ? 'active' : ''}`} onClick={() => setActiveScreen('settings')}><SlidersHorizontal className="h-4 w-4" />Настройки</button>
         </nav>
       </aside>

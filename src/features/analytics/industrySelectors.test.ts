@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { IndustryRow } from '../../shared/types/domain';
-import { buildIndustryDailySeries, buildIndustrySummaries, buildTrafficComposition, normalizedMetricShares, weightedAverage } from './industrySelectors';
+import { buildIndustryDailySeries, buildIndustrySummaries, buildTrafficComposition, metricTrafficCount, normalizedMetricShares, weightedAverage } from './industrySelectors';
 
 const baseRow: IndustryRow = {
   industry: 'Retail',
@@ -36,7 +36,7 @@ describe('industrySelectors', () => {
     expect(weightedAverage(rows, 'humansPercent')).toBe(65);
   });
 
-  it('keeps source attack percentages weighted by total traffic and derives counts', () => {
+  it('uses the correct denominator for daily attack percentages and counts', () => {
     const [day] = buildIndustryDailySeries([
       { ...baseRow, allTrafic: 1000, apiPercent: 2, parsersPercent: 1, credsPercent: 0, scanerPercent: 0, paymentsCrackPercent: 0, smsPushBomberPercent: 0 },
       { ...baseRow, allTrafic: 3000, apiPercent: 4, parsersPercent: 2, credsPercent: 0, scanerPercent: 0, paymentsCrackPercent: 0, smsPushBomberPercent: 0 },
@@ -44,7 +44,8 @@ describe('industrySelectors', () => {
 
     expect(day.apiPercent).toBe(3.5);
     expect(day.parsersPercent).toBe(1.75);
-    expect(day.apiPercentCount).toBe(140);
+    expect(day.apiPercentCount).toBe(14);
+    expect(day.parsersPercentCount).toBe(7);
   });
 
   it('weights bot-composition metrics by malicious-bot volume', () => {
@@ -54,6 +55,18 @@ describe('industrySelectors', () => {
     ];
 
     expect(weightedAverage(rows, 'strongBotsPercent')).toBe(50);
+  });
+
+  it('weights API attacks by malicious traffic and derives their count from that traffic', () => {
+    const rows = [
+      { ...baseRow, allTrafic: 1000, badBotsPercent: 10, apiPercent: 10 },
+      { ...baseRow, allTrafic: 1000, badBotsPercent: 30, apiPercent: 20 },
+    ];
+
+    expect(weightedAverage(rows, 'apiPercent')).toBe(17.5);
+    expect(metricTrafficCount(rows, 'apiPercent')).toBe(70);
+    expect(metricTrafficCount(rows.map((row) => ({ ...row, parsersPercent: row.apiPercent })), 'parsersPercent')).toBe(70);
+    expect(buildIndustryDailySeries(rows)[0].apiPercentCount).toBe(70);
   });
 
   it('derives check as the residual and keeps the traffic composition at 100%', () => {

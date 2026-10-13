@@ -3176,7 +3176,7 @@ body {
 }
 
 .industry-dashboard .industry-main-grid {
-  grid-template-columns: minmax(0, 1.55fr) minmax(420px, .78fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .industry-dashboard .industry-detail-grid {
@@ -3718,6 +3718,73 @@ body {
 
 .industry-dashboard .industry-table tbody tr:hover td {
   background: #282b2c;
+}
+
+.industry-dashboard .industry-table .metric-group-composition {
+  --metric-group-accent: rgba(1,205,203,.62);
+}
+
+.industry-dashboard .industry-table .metric-group-api {
+  --metric-group-accent: rgba(191,167,255,.72);
+}
+
+.industry-dashboard .industry-table .metric-group-activity {
+  --metric-group-accent: rgba(247,99,47,.62);
+}
+
+.industry-dashboard .industry-table th[class*="metric-group-"] {
+  border-top: 3px solid var(--metric-group-accent);
+  background-color: #222526;
+}
+
+.industry-dashboard .industry-table th.metric-group-api {
+  background-color: #27242d;
+}
+
+.industry-dashboard .industry-table th.metric-group-activity {
+  background-color: #292421;
+}
+
+.industry-dashboard .industry-table tbody td.metric-group-composition {
+  background-color: #202627;
+}
+
+.industry-dashboard .industry-table tbody td.metric-group-api {
+  background-color: #25232a;
+}
+
+.industry-dashboard .industry-table tbody td.metric-group-activity {
+  background-color: #262321;
+}
+
+.industry-dashboard .industry-table tbody tr:nth-child(even) td.metric-group-composition {
+  background-color: #242a2b;
+}
+
+.industry-dashboard .industry-table tbody tr:nth-child(even) td.metric-group-api {
+  background-color: #29272e;
+}
+
+.industry-dashboard .industry-table tbody tr:nth-child(even) td.metric-group-activity {
+  background-color: #2a2724;
+}
+
+.industry-dashboard .industry-table tbody tr:hover td.metric-group-composition,
+.industry-dashboard .industry-table tbody tr:hover td.metric-group-api,
+.industry-dashboard .industry-table tbody tr:hover td.metric-group-activity {
+  background-color: #2b3031;
+}
+
+.industry-dashboard .industry-table .metric-group-start {
+  border-left: 2px solid var(--metric-group-accent);
+}
+
+.industry-dashboard .industry-table .metric-group-end {
+  border-right: 2px solid var(--metric-group-accent);
+}
+
+.industry-dashboard .industry-table tfoot td[class*="metric-group-"] {
+  background-color: #272c2d;
 }
 
 .industry-dashboard .industry-table tfoot td {

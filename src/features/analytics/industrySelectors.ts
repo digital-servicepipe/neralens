@@ -17,14 +17,14 @@ export const industryMetrics: IndustryMetric[] = [
   { key: 'desktopBotsPercent', label: 'Доля десктопных ботов среди всего бот-трафика', shortLabel: 'Доля десктопных ботов среди всего бот-трафика' },
   { key: 'unknownBotsPercent', label: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика', shortLabel: 'Доля ботов с неизвестным типом устройства среди всего бот-трафика' },
   { key: 'dataCentersPercent', label: 'Доля трафика, исходящего из дата-центров от общего объёма трафика', shortLabel: 'Доля трафика, исходящего из дата-центров от общего объёма трафика' },
-  { key: 'apiPercent', label: 'Доля API-атак от общего объёма трафика', shortLabel: 'Доля API-атак от общего объёма трафика' },
+  { key: 'apiPercent', label: 'Доля API-атак от вредоносного трафика', shortLabel: 'Доля API-атак от вредоносного трафика' },
   { key: 'ruPercent', label: 'Доля трафика из России от общего объёма трафика', shortLabel: 'Доля трафика из России от общего объёма трафика' },
   { key: 'foreignPercent', label: 'Доля иностранного трафика от общего объёма трафика', shortLabel: 'Доля иностранного трафика от общего объёма трафика' },
-  { key: 'parsersPercent', label: 'Доля активности парсеров от общего объёма трафика', shortLabel: 'Доля активности парсеров от общего объёма трафика' },
-  { key: 'credsPercent', label: 'Доля подбора учётных данных от общего объёма трафика', shortLabel: 'Доля подбора учётных данных от общего объёма трафика' },
-  { key: 'scanerPercent', label: 'Доля сканеров от общего объёма трафика', shortLabel: 'Доля сканеров от общего объёма трафика' },
-  { key: 'paymentsCrackPercent', label: 'Доля подбора платёжных данных от общего объёма трафика', shortLabel: 'Доля подбора платёжных данных от общего объёма трафика' },
-  { key: 'smsPushBomberPercent', label: 'Доля SMS/Push-бомберов от общего объёма трафика', shortLabel: 'Доля SMS/Push-бомберов от общего объёма трафика' },
+  { key: 'parsersPercent', label: 'Доля активности парсеров от вредоносного трафика', shortLabel: 'Доля активности парсеров от вредоносного трафика' },
+  { key: 'credsPercent', label: 'Доля подбора учётных данных от вредоносного трафика', shortLabel: 'Доля подбора учётных данных от вредоносного трафика' },
+  { key: 'scanerPercent', label: 'Доля сканеров от вредоносного трафика', shortLabel: 'Доля сканеров от вредоносного трафика' },
+  { key: 'paymentsCrackPercent', label: 'Доля подбора платёжных данных от вредоносного трафика', shortLabel: 'Доля подбора платёжных данных от вредоносного трафика' },
+  { key: 'smsPushBomberPercent', label: 'Доля SMS/Push-бомберов от вредоносного трафика', shortLabel: 'Доля SMS/Push-бомберов от вредоносного трафика' },
 ];
 
 export interface IndustrySummary {
@@ -59,11 +59,17 @@ const badBotDenominatorMetrics = new Set<keyof IndustryRow>([
   'mobileBotsPercent',
   'desktopBotsPercent',
   'unknownBotsPercent',
+  'apiPercent',
+  'parsersPercent',
+  'credsPercent',
+  'scanerPercent',
+  'paymentsCrackPercent',
+  'smsPushBomberPercent',
 ]);
 
 function metricWeight(row: IndustryRow, key: keyof IndustryRow): number {
-  // These source percentages describe the composition of malicious bot traffic,
-  // so their aggregation denominator is the row's malicious-bot volume.
+  // These source percentages use malicious bot traffic as their denominator,
+  // so aggregation and derived counts must use the row's malicious-bot volume.
   if (badBotDenominatorMetrics.has(key)) return row.allTrafic * row.badBotsPercent / 100;
   return row.allTrafic;
 }
@@ -101,7 +107,7 @@ export function metricTrafficCount(rows: IndustryRow[], key: keyof IndustryRow):
     const value = key === 'checkPercent'
       ? trafficCheckPercent(row)
       : typeof row[key] === 'number' && Number.isFinite(row[key]) ? Number(row[key]) : 0;
-    return sum + (row.allTrafic * value) / 100;
+    return sum + (metricWeight(row, key) * value) / 100;
   }, 0);
 }
 
@@ -237,6 +243,6 @@ export function buildIndustryDailySeries(rows: IndustryRow[]) {
 function estimatePercentCount(rows: IndustryRow[], key: keyof IndustryRow) {
   return Math.round(rows.reduce((sum, row) => {
     const value = typeof row[key] === 'number' ? row[key] : 0;
-    return sum + (row.allTrafic * value) / 100;
+    return sum + (metricWeight(row, key) * value) / 100;
   }, 0));
 }

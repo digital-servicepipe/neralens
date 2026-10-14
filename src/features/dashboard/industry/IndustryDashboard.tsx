@@ -73,12 +73,13 @@ const industryMetricColors: Record<ColoredIndustryMetric, string> = {
   goodBotsPercent: brandColors.gray,
   ruPercent: brandColors.turquoiseSoft,
   foreignPercent: brandColors.neutralBlue,
-  botsPercent: brandColors.turquoise,
+  // Колонки источника названы обратно: strong_bots_percent — явный бот, bots_percent — продвинутый.
+  botsPercent: brandColors.orange,
   desktopBotsPercent: brandColors.neutralBlue,
   mobileBotsPercent: brandColors.violet,
   unknownBotsPercent: brandColors.grayDark,
   dataCentersPercent: brandColors.gray,
-  strongBotsPercent: brandColors.orange,
+  strongBotsPercent: brandColors.turquoise,
   badBotsPercent: industryThreatColors.badBotsPercent,
   apiPercent: industryThreatColors.apiPercent,
   parsersPercent: industryThreatColors.parsersPercent,
@@ -110,8 +111,9 @@ const industryFieldLabels = {
   goodBotsPercent: 'Доля обеленных ботов (Яндекс, Гугл...) от общего объёма трафика',
   humansPercent: 'Доля человеческого трафика от общего объёма трафика',
   checkPercent: 'Доля потенциально легитимных пользователей, включённая во вредоносный трафик',
-  botsPercent: 'Доля обычных ботов от общего объёма трафика',
-  strongBotsPercent: 'Доля продвинутых ботов от общего объёма трафика',
+  // Колонки источника названы обратно: strong_bots_percent — явный бот, bots_percent — продвинутый.
+  botsPercent: 'Доля продвинутых ботов от общего объёма трафика',
+  strongBotsPercent: 'Доля обычных ботов от общего объёма трафика',
   mobileBotsPercent: 'Доля мобильных ботов от общего объёма трафика',
   desktopBotsPercent: 'Доля десктопных ботов от общего объёма трафика',
   unknownBotsPercent: 'Доля ботов с неизвестным типом устройства от общего объёма трафика',
@@ -130,8 +132,8 @@ const industryShortLabels: Partial<Record<keyof IndustryRow, string>> = {
   badBotsPercent: 'Вредоносные боты',
   goodBotsPercent: 'Обеленные боты',
   humansPercent: 'Человеческий трафик',
-  botsPercent: 'Обычные боты',
-  strongBotsPercent: 'Продвинутые боты',
+  botsPercent: 'Продвинутые боты',
+  strongBotsPercent: 'Обычные боты',
   mobileBotsPercent: 'Мобильные боты',
   desktopBotsPercent: 'Десктопные боты',
   unknownBotsPercent: 'Неизвестное устройство',
@@ -283,8 +285,6 @@ export function IndustryDashboard({
           title="Весь трафик"
           subtitle="Потенциально легитимные пользователи включены во вредоносный трафик"
           data={trafficComposition}
-          centerLabel="100%"
-          centerCaption="всего трафика"
         />
         <DonutPanel
           title="Бот-трафик по категориям"
@@ -311,7 +311,6 @@ export function IndustryDashboard({
             totalTraffic={totalBadBotTraffic}
             wholeLabel="Вредоносный трафик"
             metricLabel="API-атаки"
-            centerCaption="вредоносный трафик"
           />
         )}
         {attackMetrics.length > 0 && <IndustryBar className="industry-wide-chart" title="Типы угроз" subtitle="Доли от вредоносного трафика; API-атаки показаны отдельно" data={attackMetrics} height={300} ticks={attackAxisTicks} tooltipBasis="maliciousTraffic" />}
@@ -718,14 +717,10 @@ function DonutPanel({
   title,
   subtitle,
   data,
-  centerLabel,
-  centerCaption,
 }: {
   title: string;
   subtitle: string;
   data: MetricDatum[];
-  centerLabel?: string;
-  centerCaption?: string;
 }) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const fileName = chartExportFileName(title);
@@ -742,7 +737,7 @@ function DonutPanel({
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={45}
+                innerRadius={0}
                 outerRadius={72}
                 startAngle={90}
                 endAngle={-270}
@@ -753,12 +748,6 @@ function DonutPanel({
               >
                 {data.map((item) => <Cell key={item.name} fill={item.color} />)}
               </Pie>
-              {centerLabel && (
-                <g className="industry-donut-center" aria-hidden="true">
-                  <text x="50%" y="46%" dominantBaseline="middle" textAnchor="middle">{centerLabel}</text>
-                  {centerCaption && <text className="industry-donut-center-caption" x="50%" y="59%" dominantBaseline="middle" textAnchor="middle">{centerCaption}</text>}
-                </g>
-              )}
               <Tooltip content={<DonutTooltip />} allowEscapeViewBox={{ x: true, y: true }} wrapperStyle={{ outline: 'none', zIndex: 30 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -784,7 +773,6 @@ function TrafficShareDonutPanel({
   totalTraffic,
   wholeLabel = 'Весь трафик',
   metricLabel = 'Из дата-центров',
-  centerCaption = 'общий трафик',
 }: {
   title: string;
   subtitle: string;
@@ -792,11 +780,11 @@ function TrafficShareDonutPanel({
   totalTraffic: number;
   wholeLabel?: string;
   metricLabel?: string;
-  centerCaption?: string;
 }) {
   const hasTraffic = totalTraffic > 0;
   const share = hasTraffic ? Math.min(100, Math.max(0, metric?.value ?? 0)) : 0;
   const dataCenterCount = estimateMetricCount(totalTraffic, share);
+  const totalLabel = formatCompactNumber(totalTraffic);
   const fileName = chartExportFileName(title);
   const wholeColor = brandColors.turquoise;
   const dataCenterColor = metric?.color ?? industryMetricColors.dataCentersPercent;
@@ -818,7 +806,7 @@ function TrafficShareDonutPanel({
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={45}
+                innerRadius={0}
                 outerRadius={72}
                 startAngle={90}
                 endAngle={-270}
@@ -833,7 +821,7 @@ function TrafficShareDonutPanel({
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={45}
+                innerRadius={0}
                 outerRadius={72}
                 startAngle={90}
                 endAngle={-270}
@@ -844,10 +832,6 @@ function TrafficShareDonutPanel({
                 <Cell fill={dataCenterColor} />
                 <Cell fill="transparent" stroke="transparent" style={{ pointerEvents: 'none' }} />
               </Pie>
-              <g className="industry-donut-center industry-donut-total" aria-hidden="true">
-                <text x="50%" y="46%" dominantBaseline="middle" textAnchor="middle">{formatCompactNumber(totalTraffic)}</text>
-                <text className="industry-donut-center-caption" x="50%" y="59%" dominantBaseline="middle" textAnchor="middle">{centerCaption}</text>
-              </g>
               <Tooltip content={<TrafficShareDonutTooltip />} allowEscapeViewBox={{ x: true, y: true }} wrapperStyle={{ outline: 'none', zIndex: 30 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -856,7 +840,7 @@ function TrafficShareDonutPanel({
       <div className="industry-donut-legend">
         <div className="industry-donut-legend-row">
           <span><i style={{ backgroundColor: wholeColor }} />{wholeLabel}</span>
-          <strong>{hasTraffic ? '100%' : '0%'}<small>{formatCompactNumber(totalTraffic)}</small></strong>
+          <strong>{hasTraffic ? '100%' : '0%'}<small>{totalLabel}</small></strong>
         </div>
         <div className="industry-donut-legend-row">
           <span><i style={{ backgroundColor: dataCenterColor }} />{metricLabel}</span>

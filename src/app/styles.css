@@ -3681,30 +3681,6 @@ body {
   justify-self: center;
 }
 
-.industry-dashboard .industry-donut-center {
-  pointer-events: none;
-}
-
-.industry-dashboard .industry-donut-center text {
-  fill: var(--ui-color-text);
-  font-family: var(--ui-font-numeric);
-  font-size: 22px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.industry-dashboard .industry-donut-center .industry-donut-center-caption {
-  fill: var(--ui-color-text-muted);
-  font-family: var(--ui-font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .02em;
-}
-
-.industry-dashboard .industry-donut-total text:not(.industry-donut-center-caption) {
-  font-size: 17px;
-}
-
 .industry-dashboard .industry-donut-legend {
   display: grid;
   gap: 0;
